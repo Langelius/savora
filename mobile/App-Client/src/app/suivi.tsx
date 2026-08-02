@@ -15,6 +15,7 @@ import { api, Commande } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 import { palette } from "../constants/design";
 import { SOCKET_URL } from "../constants/config";
+import { libelleStatut, notifierLocalement } from "../services/notifications";
 
 const ETAPES = [
   "en attente",
@@ -128,9 +129,19 @@ export default function Suivi() {
     const mettreAJour = (
       nouvelleCommande: Commande
     ) => {
-      if (nouvelleCommande._id === id) {
-        setCommande(nouvelleCommande);
-      }
+      if (nouvelleCommande._id !== id) return;
+
+      // Canal local : affiche une notification à chaque étape franchie.
+      // Il double les push distantes du serveur, qui ne fonctionnent pas
+      // dans Expo Go sur Android depuis le SDK 53. Les deux ne peuvent pas
+      // faire doublon puisqu'Expo Go ne reçoit jamais les push distantes.
+      setCommande((precedente) => {
+        if (precedente && precedente.statut !== nouvelleCommande.statut) {
+          const libelle = libelleStatut(nouvelleCommande.statut);
+          if (libelle) notifierLocalement(libelle.titre, libelle.corps);
+        }
+        return nouvelleCommande;
+      });
     };
 
     socket.on(
