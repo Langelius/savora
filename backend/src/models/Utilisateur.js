@@ -1,0 +1,3 @@
+const mongoose=require("mongoose");
+const schemaUtilisateur=new mongoose.Schema({nom:{type:String,required:true,trim:true,minlength:2},courriel:{type:String,required:true,unique:true,lowercase:true,trim:true},motDePasse:{type:String,required:true,select:false},telephone:{type:String,default:""},adresses:[{libelle:{type:String,default:"Maison"},adresse:String,ville:String,codePostal:String}],role:{type:String,enum:["client","restaurant","livreur","admin"],default:"client"},restaurantId:{type:mongoose.Schema.Types.ObjectId,ref:"Restaurant",default:null,index:true},jetonReinitialisation:{type:String,select:false},expirationJetonReinitialisation:{type:Date,select:false}},{timestamps:true});
+module.exports=mongoose.model("Utilisateur",schemaUtilisateur);
