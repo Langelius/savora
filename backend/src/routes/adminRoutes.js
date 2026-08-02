@@ -4,6 +4,7 @@ const verifierJeton = require("../middleware/auth");
 const autoriserRoles = require("../middleware/roles");
 const asynchrone = require("../utils/asynchrone");
 const controleurAdmin = require("../controllers/adminController");
+const menu = require("../controllers/menuController");
 
 const routeur = express.Router();
 
@@ -20,8 +21,16 @@ routeur.patch("/utilisateurs/:id/role", asynchrone(controleurAdmin.modifierRoleU
 routeur.delete("/utilisateurs/:id", asynchrone(controleurAdmin.supprimerUtilisateur));
 
 routeur.get("/restaurants", asynchrone(controleurAdmin.obtenirRestaurants));
+routeur.post("/restaurants", asynchrone(menu.creerRestaurant));
+routeur.put("/restaurants/:id", asynchrone(menu.modifierRestaurant));
 routeur.patch("/restaurants/:id/actif", asynchrone(controleurAdmin.modifierEtatRestaurant));
 routeur.delete("/restaurants/:id", asynchrone(controleurAdmin.supprimerRestaurant));
+
+// Menu d'un restaurant, vu par l'administration.
+routeur.get("/restaurants/:restaurantId/plats", asynchrone(menu.listerPlats));
+routeur.post("/restaurants/:restaurantId/plats", asynchrone(menu.creerPlat));
+routeur.put("/plats/:platId", asynchrone(menu.modifierPlat));
+routeur.delete("/plats/:platId", asynchrone(menu.supprimerPlat));
 
 routeur.get("/commandes", asynchrone(controleurAdmin.obtenirCommandes));
 routeur.patch("/commandes/:id/annuler", asynchrone(controleurAdmin.annulerCommande));

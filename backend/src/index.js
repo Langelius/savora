@@ -15,6 +15,8 @@ const routesCommandes = require("./routes/commandes");
 const routesRestaurants = require("./routes/restaurants");
 const routesAdmin = require("./routes/adminRoutes");
 const routesMessages = require("./routes/messages");
+const routesMonRestaurant = require("./routes/monRestaurant");
+const routesNotifications = require("./routes/notifications");
 
 const VERSION_API = "3.0.0";
 
@@ -63,6 +65,8 @@ application.use("/api/auth", routesAuth);
 application.use("/api/restaurants", routesRestaurants);
 application.use("/api/commandes", routesCommandes);
 application.use("/api/commandes", routesMessages);
+application.use("/api/mon-restaurant", routesMonRestaurant);
+application.use("/api/notifications", routesNotifications);
 application.use("/api/admin", routesAdmin);
 
 application.use(routeIntrouvable);
