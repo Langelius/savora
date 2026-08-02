@@ -5,9 +5,11 @@ let io = null;
 
 function initialiserSocket(serveurHttp) {
   const { Server } = require("socket.io");
-  io = new Server(serveurHttp, {
-    cors: { origin: true, credentials: true },
-  });
+  const { politiqueCors } = require("../middleware/securite");
+
+  // Même liste blanche que l'API : le canal temps réel ne doit pas être une
+  // porte plus permissive que les routes REST.
+  io = new Server(serveurHttp, { cors: politiqueCors() });
 
   io.use(async (socket, suivant) => {
     try {

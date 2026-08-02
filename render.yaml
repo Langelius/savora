@@ -1,0 +1,43 @@
+# Déploiement du backend Savora sur Render.
+#
+# Utilisation : dans Render, « New + » → « Blueprint », puis pointer sur ce
+# dépôt. Render lit ce fichier et crée le service. Les variables marquées
+# sync: false doivent être saisies à la main dans l'interface : elles ne sont
+# volontairement pas versionnées.
+
+services:
+  - type: web
+    name: savora-api
+    runtime: node
+    plan: free
+    region: oregon
+    rootDir: backend
+    buildCommand: npm ci
+    startCommand: npm start
+
+    # Render interroge cette route pour savoir si le service est vivant.
+    healthCheckPath: /api/sante
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+      # Render impose le port par cette variable ; le code la lit déjà.
+      - key: PORT
+        value: 10000
+
+      # Généré par Render : évite de coller un secret dans le dépôt.
+      - key: JWT_SECRET
+        generateValue: true
+
+      # À saisir dans l'interface Render.
+      - key: MONGODB_URI
+        sync: false
+
+      # Liste blanche CORS, séparée par des virgules. Obligatoire en production.
+      - key: ORIGINES_AUTORISEES
+        sync: false
+
+      # Facultatif : sans clé, le paiement fonctionne en mode simulation.
+      - key: STRIPE_SECRET_KEY
+        sync: false

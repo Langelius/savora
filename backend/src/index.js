@@ -103,6 +103,28 @@ async function demarrer() {
     console.log(`  paiement  : mode ${modePaiementActif()}`);
   });
 
+  // Render et Railway envoient SIGTERM avant de remplacer une instance.
+  // Sans arrêt propre, les requêtes en cours sont coupées net et les
+  // connexions MongoDB restent ouvertes côté serveur.
+  const arreter = (signal) => {
+    console.log(`${signal} reçu, arrêt en cours...`);
+
+    serveurHttp.close(async () => {
+      try {
+        await require("mongoose").connection.close();
+      } catch (erreur) {
+        console.error("Fermeture MongoDB :", erreur.message);
+      }
+      process.exit(0);
+    });
+
+    // Filet de sécurité si des connexions traînent (websockets ouverts).
+    setTimeout(() => process.exit(1), 10000).unref();
+  };
+
+  process.on("SIGTERM", () => arreter("SIGTERM"));
+  process.on("SIGINT", () => arreter("SIGINT"));
+
   return serveurHttp;
 }
 
