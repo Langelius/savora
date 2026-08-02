@@ -50,6 +50,28 @@ export type Avis = {
   utilisateurId?: { _id: string; nom: string };
 };
 
+export type PlatModifiable = {
+  nom?: string;
+  description?: string;
+  prix?: number;
+  categorie?: string;
+  image?: string;
+  options?: OptionPlat[];
+  populaire?: boolean;
+  disponible?: boolean;
+};
+
+export type RestaurantModifiable = {
+  nom?: string;
+  cuisine?: string;
+  description?: string;
+  image?: string;
+  adresse?: string;
+  delai?: string;
+  fraisLivraison?: number;
+  actif?: boolean;
+};
+
 // Renvoyée par GET /api/configuration : évite de dupliquer le taux de taxes
 // entre le serveur et l'application.
 export type ConfigurationServeur = {
@@ -399,6 +421,96 @@ export const api = {
       },
       token
     ),
+
+  // ── Notifications ───────────────────────────────────────────────────────
+  enregistrerAppareil: (token: string, jeton: string, plateforme: string) =>
+    requete<{ message: string }>(
+      "/notifications/appareil",
+      { method: "POST", body: JSON.stringify({ jeton, plateforme }) },
+      token
+    ),
+
+  oublierAppareil: (token: string, jeton: string) =>
+    requete<{ message: string }>(
+      "/notifications/appareil",
+      { method: "DELETE", body: JSON.stringify({ jeton }) },
+      token
+    ),
+
+  // ── Menu géré par le restaurant ─────────────────────────────────────────
+  monRestaurant: (token: string) =>
+    requete<{ restaurant: Restaurant; plats: Plat[] }>("/mon-restaurant", {}, token),
+
+  modifierMonRestaurant: (token: string, champs: RestaurantModifiable) =>
+    requete<{ restaurant: Restaurant }>(
+      "/mon-restaurant",
+      { method: "PUT", body: JSON.stringify(champs) },
+      token
+    ),
+
+  creerMonPlat: (token: string, champs: PlatModifiable) =>
+    requete<{ plat: Plat }>(
+      "/mon-restaurant/plats",
+      { method: "POST", body: JSON.stringify(champs) },
+      token
+    ),
+
+  modifierMonPlat: (token: string, platId: string, champs: PlatModifiable) =>
+    requete<{ plat: Plat }>(
+      `/mon-restaurant/plats/${platId}`,
+      { method: "PUT", body: JSON.stringify(champs) },
+      token
+    ),
+
+  retirerMonPlat: (token: string, platId: string) =>
+    requete<{ message: string }>(
+      `/mon-restaurant/plats/${platId}`,
+      { method: "DELETE" },
+      token
+    ),
+
+  // ── Restaurants et menus gérés par l'administration ─────────────────────
+  creerRestaurantAdmin: (
+    token: string,
+    champs: RestaurantModifiable & {
+      gestionnaire?: { nom?: string; courriel: string; motDePasse?: string };
+    }
+  ) =>
+    requete<{
+      restaurant: Restaurant;
+      gestionnaire: { id: string; nom: string; courriel: string } | null;
+    }>("/admin/restaurants", { method: "POST", body: JSON.stringify(champs) }, token),
+
+  modifierRestaurantAdmin: (token: string, id: string, champs: RestaurantModifiable) =>
+    requete<{ restaurant: Restaurant }>(
+      `/admin/restaurants/${id}`,
+      { method: "PUT", body: JSON.stringify(champs) },
+      token
+    ),
+
+  platsRestaurantAdmin: (token: string, restaurantId: string) =>
+    requete<{ restaurant: Restaurant; plats: Plat[] }>(
+      `/admin/restaurants/${restaurantId}/plats`,
+      {},
+      token
+    ),
+
+  creerPlatAdmin: (token: string, restaurantId: string, champs: PlatModifiable) =>
+    requete<{ plat: Plat }>(
+      `/admin/restaurants/${restaurantId}/plats`,
+      { method: "POST", body: JSON.stringify(champs) },
+      token
+    ),
+
+  modifierPlatAdmin: (token: string, platId: string, champs: PlatModifiable) =>
+    requete<{ plat: Plat }>(
+      `/admin/plats/${platId}`,
+      { method: "PUT", body: JSON.stringify(champs) },
+      token
+    ),
+
+  retirerPlatAdmin: (token: string, platId: string) =>
+    requete<{ message: string }>(`/admin/plats/${platId}`, { method: "DELETE" }, token),
 
   statistiquesAdmin: (token: string) =>
     requete<{
