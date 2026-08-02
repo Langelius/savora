@@ -1,0 +1,28 @@
+{
+  "name": "livraison-repas-backend",
+  "version": "1.0.0",
+  "description": "API de l'application de livraison de repas",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "test": "echo \"Aucun test pour le moment\" && exit 0",
+    "seed": "node src/scripts/seed.js",
+    "creer-compte-restaurant": "node src/scripts/creerCompteRestaurant.js",
+    "creer-compte-livreur": "node src/scripts/creerCompteLivreur.js",
+    "creer-admin": "node src/scripts/creerAdmin.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "mongoose": "^8.4.0",
+    "jsonwebtoken": "^9.0.2",
+    "bcrypt": "^5.1.1",
+    "socket.io": "^4.7.5",
+    "stripe": "^15.7.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  }
+}
