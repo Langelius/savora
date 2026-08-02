@@ -67,19 +67,9 @@ export default function Paiement() {
     }
 
     if (methode === "carte") {
-      const carte = numero.replace(/\s/g, "");
-      const formatValide =
-        titulaire.trim().length >= 3 &&
-        /^\d{16}$/.test(carte) &&
-        /^\d{2}\/\d{2}$/.test(expiration) &&
-        /^\d{3,4}$/.test(cvv);
-
-      if (!formatValide) {
-        return Alert.alert(
-          "Carte invalide",
-          "Vérifie le nom, les 16 chiffres, la date MM/AA et le CVV."
-        );
-      }
+      // Un message par champ : « carte invalide » ne dit pas quoi corriger.
+      const probleme = validerCarte({ titulaire, numero, expiration, cvv });
+      if (probleme) return Alert.alert("Carte invalide", probleme);
     }
 
     try {
@@ -150,7 +140,7 @@ export default function Paiement() {
             />
             <TextInput
               value={numero}
-              onChangeText={(v) => setNumero(v.replace(/[^0-9 ]/g, "").slice(0, 19))}
+              onChangeText={(v) => setNumero(formaterNumero(v))}
               placeholder="4242 4242 4242 4242"
               keyboardType="number-pad"
               style={styles.champ}
@@ -158,7 +148,7 @@ export default function Paiement() {
             <View style={styles.deuxColonnes}>
               <TextInput
                 value={expiration}
-                onChangeText={(v) => setExpiration(v.replace(/[^0-9/]/g, "").slice(0, 5))}
+                onChangeText={(v) => setExpiration(formaterExpiration(v))}
                 placeholder="MM/AA"
                 keyboardType="number-pad"
                 style={[styles.champ, styles.demi]}
@@ -198,6 +188,63 @@ export default function Paiement() {
       </ScrollView>
     </SafeAreaView>
   );
+}
+
+// Regroupe les chiffres par quatre : 4242424242424242 → 4242 4242 4242 4242.
+function formaterNumero(saisie: string): string {
+  const chiffres = saisie.replace(/\D/g, "").slice(0, 16);
+  const groupes = chiffres.match(/.{1,4}/g);
+  return groupes ? groupes.join(" ") : "";
+}
+
+// Insère la barre oblique automatiquement : taper « 0828 » donne « 08/28 ».
+// Sans cela, l'utilisateur devait deviner qu'il fallait la saisir lui-même.
+function formaterExpiration(saisie: string): string {
+  const chiffres = saisie.replace(/\D/g, "").slice(0, 4);
+  if (chiffres.length <= 2) return chiffres;
+  return `${chiffres.slice(0, 2)}/${chiffres.slice(2)}`;
+}
+
+// Renvoie le premier problème rencontré, ou null si la carte est valide.
+// Les mêmes règles sont réappliquées par le serveur : ceci évite seulement
+// un aller-retour réseau inutile.
+function validerCarte(carte: {
+  titulaire: string;
+  numero: string;
+  expiration: string;
+  cvv: string;
+}): string | null {
+  if (carte.titulaire.trim().length < 3) {
+    return "Entre le nom inscrit sur la carte (3 caractères minimum).";
+  }
+
+  const chiffres = carte.numero.replace(/\D/g, "");
+  if (chiffres.length !== 16) {
+    return `Le numéro doit contenir 16 chiffres (tu en as saisi ${chiffres.length}).`;
+  }
+
+  const dateChiffres = carte.expiration.replace(/\D/g, "");
+  if (dateChiffres.length !== 4) {
+    return "La date d'expiration doit être au format MM/AA, par exemple 08/28.";
+  }
+
+  const mois = Number(dateChiffres.slice(0, 2));
+  const annee = Number(dateChiffres.slice(2));
+  if (mois < 1 || mois > 12) {
+    return `Le mois « ${dateChiffres.slice(0, 2)} » n'existe pas. Format attendu : MM/AA.`;
+  }
+
+  // Une carte reste valable jusqu'au dernier jour du mois indiqué.
+  const finDeValidite = new Date(2000 + annee, mois, 0, 23, 59, 59);
+  if (finDeValidite < new Date()) {
+    return "Cette carte est expirée. Utilise une date future, par exemple 12/30.";
+  }
+
+  if (!/^\d{3,4}$/.test(carte.cvv.trim())) {
+    return "Le CVV doit contenir 3 ou 4 chiffres.";
+  }
+
+  return null;
 }
 
 function Ligne({
