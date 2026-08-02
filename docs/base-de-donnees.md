@@ -7,8 +7,8 @@
 
 *Figure 2 — Collections MongoDB et relations.*
 
-Six collections : `utilisateurs`, `restaurants`, `plats`, `commandes`,
-`messages`, `avis`. Toutes portent `createdAt` et `updatedAt`
+Sept collections : `utilisateurs`, `restaurants`, `plats`, `commandes`,
+`messages`, `avis`, `appareilnotifications`. Toutes portent `createdAt` et `updatedAt`
 (option `timestamps` de Mongoose).
 
 ---
@@ -150,3 +150,21 @@ Avis.aggregate([
 
 La moyenne est ainsi toujours calculée sur l'ensemble réel des avis, même si
 plusieurs clients notent au même moment.
+
+---
+
+## `appareilnotifications`
+
+| Champ | Type | Notes |
+|-------|------|-------|
+| `_id` | ObjectId | |
+| `utilisateurId` | ObjectId → `utilisateurs` | indexé |
+| `jeton` | String | **unique** — jeton Expo de l'appareil |
+| `plateforme` | String | `ios` \| `android` \| `web` \| `inconnue` |
+| `derniereUtilisation` | Date | |
+
+Un utilisateur peut se connecter depuis plusieurs appareils : la relation est
+de un à plusieurs. La clé unique est le **jeton**, et non le couple
+utilisateur/appareil : un téléphone repris par un autre compte est ainsi
+simplement réattribué, sans doublon ni notification envoyée à l'ancien
+propriétaire.

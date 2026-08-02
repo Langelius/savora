@@ -1,6 +1,6 @@
 # Architecture du système
 
-> État au 2 août 2026 — version 3.0 de l'API. Ce document décrit ce qui est
+> État au 2 août 2026 — version 3.1 de l'API. Ce document décrit ce qui est
 > **réellement implémenté**, pas ce qui était prévu au cadrage.
 
 ## Vue d'ensemble
@@ -27,6 +27,8 @@ statut, messages de discussion.
 | Cartographie | react-native-maps + expo-location | Trajet du livreur |
 | Authentification | JWT (24 h) + bcrypt (12 tours) | Sessions et mots de passe |
 | Session mobile | expo-secure-store | Conservation du jeton entre deux lancements |
+| Notifications | expo-notifications + service Expo Push | Alerte à chaque étape de la commande |
+| Hébergement | Render ou Railway + MongoDB Atlas | Déploiement du backend |
 
 > **Écart assumé par rapport au cadrage.** Le cahier des charges v2 prévoyait
 > React Native en JavaScript avec Redux ou Context API, et Google Maps API.
@@ -52,7 +54,9 @@ backend/src/
 ├── services/             règles métier pures, testables sans base de données
 │   ├── tarification.js   prix des lignes, taxes, total
 │   ├── statutsCommande.js machine à états et droits par rôle
-│   └── paiement.js       Stripe en mode test, ou simulation
+│   ├── validationMenu.js règles de saisie des restaurants et des plats
+│   ├── paiement.js       Stripe en mode test, ou simulation
+│   └── notifications.js  composition et envoi des notifications poussées
 ├── models/               schémas Mongoose
 ├── controllers/          orchestration HTTP
 ├── routes/               déclaration des points d'entrée
@@ -106,6 +110,60 @@ puis rejoint automatiquement plusieurs salons :
 Un socket sans jeton valide est refusé à la poignée de main : le canal temps
 réel n'est pas une porte dérobée qui contournerait l'API.
 
+## Gestion du catalogue
+
+Le catalogue n'est plus figé dans un script de démarrage. Deux rôles peuvent
+le faire évoluer, via un contrôleur unique (`menuController.js`) :
+
+| Rôle | Portée | Routes |
+|------|--------|--------|
+| Administrateur | N'importe quel établissement | `/api/admin/restaurants`, `/api/admin/plats` |
+| Gestionnaire de restaurant | Uniquement le sien | `/api/mon-restaurant` |
+
+Le cloisonnement ne repose **pas** sur la route appelée mais sur la fonction
+`resoudreRestaurant()`, qui vérifie systématiquement le droit d'accès. Un
+gestionnaire qui viserait un autre établissement par l'URL reçoit un 403
+explicite plutôt qu'une redirection silencieuse.
+
+Deux règles méritent d'être signalées :
+
+- **La note n'est jamais acceptée en écriture.** Elle est calculée à partir
+  des avis réels. L'accepter dans un formulaire permettrait de la truquer.
+- **Retirer un plat ne le supprime pas.** Il devient indisponible et quitte le
+  menu client. Des commandes passées le référencent : l'effacer casserait
+  l'historique. Seule l'administration peut forcer une suppression définitive
+  (`?definitive=true`).
+
+Le script `npm run seed` est désormais **non destructif** : il crée ce qui
+manque et met à jour ce qui existe, en identifiant les enregistrements par
+leur nom. Les restaurants créés depuis l'application survivent donc à un
+rechargement du jeu de démonstration. `npm run seed:reinitialiser` reste
+disponible pour repartir d'une base propre.
+
+## Notifications
+
+Deux canaux complémentaires, pour la même raison que le double mode de
+paiement : la démonstration doit fonctionner dans Expo Go.
+
+| Canal | Mécanisme | Portée | Limite |
+|-------|-----------|--------|--------|
+| Push distantes | Service Expo Push, appelé par le serveur | Atteint l'appareil même application fermée | Ne fonctionne plus dans Expo Go sur Android depuis le SDK 53 : nécessite un *development build* |
+| Notification locale | L'application l'affiche à la réception d'un événement Socket.IO | Fonctionne partout, y compris Expo Go | Uniquement application ouverte |
+
+Le serveur envoie toujours le premier canal s'il connaît un jeton d'appareil,
+et émet toujours l'événement Socket.IO. Les deux ne font pas doublon :
+Expo Go ne reçoit jamais les push distantes, et un *development build* qui les
+reçoit n'a l'application au premier plan que dans un cas sur deux.
+
+Trois précautions de conception :
+
+- Les erreurs d'envoi sont **absorbées et journalisées**. Une notification
+  perdue est moins grave qu'un changement de statut qui échoue à cause d'elle.
+- Les jetons signalés `DeviceNotRegistered` par Expo sont supprimés
+  automatiquement, pour ne pas conserver d'appareils désinstallés.
+- Le jeton est retiré à la déconnexion : un téléphone partagé ne reçoit pas
+  les commandes du compte précédent.
+
 ## Sécurité
 
 - Mots de passe hachés avec bcrypt (12 tours), jamais renvoyés par l'API
@@ -133,3 +191,7 @@ Détail des choix : [ADR 0004](./decisions/0004-paiement-stripe-ou-simulation.md
   entre plusieurs instances du serveur.
 - Aucun test d'intégration automatisé sur les routes ; les tests couvrent les
   services métier et les utilitaires de sécurité.
+- Les notifications distantes exigent un *development build* : elles ne sont
+  pas démontrables dans Expo Go sur Android.
+- Sur l'offre gratuite de Render, l'instance s'endort après inactivité et met
+  environ 50 secondes à répondre à la première requête.

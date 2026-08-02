@@ -19,7 +19,7 @@ Le téléphone et l'ordinateur doivent être sur le **même réseau Wi-Fi**.
 cd backend
 cp .env.example .env
 npm install
-npm run seed      # charge 3 restaurants et leurs plats
+npm run seed      # charge 3 restaurants et leurs plats (non destructif)
 npm run dev
 ```
 
@@ -70,6 +70,12 @@ COURRIEL_LIVREUR=livreur@savora.ca MOT_DE_PASSE_LIVREUR=Savora123! npm run creer
 ```
 
 Sous PowerShell, utiliser `$env:NOM="valeur"` avant l'appel `npm run`.
+
+> **Plus simple depuis la version 3.1** : un administrateur peut créer un
+> restaurant **et son compte gestionnaire** directement dans l'application
+> (Espace admin → Restaurants → « Nouveau restaurant »). Les scripts
+> ci-dessus restent utiles pour amorcer la toute première installation, quand
+> aucun compte administrateur n'existe encore.
 
 ---
 
@@ -151,5 +157,7 @@ Expiration : une date future (`12/30`). CVV : trois chiffres quelconques.
 | `/api/sante` inaccessible du téléphone | Pare-feu Windows | Ajouter la règle ci-dessus |
 | « JWT_SECRET doit contenir au moins 32 caractères » | Secret trop court | Regénérer avec la commande fournie |
 | Catalogue vide | Base non initialisée | `npm run seed` |
+| Besoin de repartir de zéro | — | `npm run seed:reinitialiser` (supprime tout le catalogue) |
+| Aucune notification reçue | Autorisation refusée, ou Expo Go sur Android | Voir `docs/decisions/0006-notifications-double-canal.md` |
 | Erreurs JSX dans VS Code | Version TypeScript de l'éditeur | *TypeScript: Select TypeScript Version* → *Use Workspace Version* |
 | Le socket ne se connecte pas | `EXPO_PUBLIC_SOCKET_URL` avec `/api` | L'URL Socket.IO ne contient pas `/api` |

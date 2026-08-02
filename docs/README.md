@@ -17,6 +17,7 @@ code qu'elle décrit.
 | [sprints/sprint-plan.md](./sprints/sprint-plan.md) | Organisation Scrum et découpage des sprints |
 | [tests/strategie-de-test.md](./tests/strategie-de-test.md) | Stratégie et couverture de test |
 | [exploitation/guide-de-test.md](./exploitation/guide-de-test.md) | **Procédure complète de test du projet** |
+| [exploitation/deploiement.md](./exploitation/deploiement.md) | **Déploiement sur Render ou Railway** |
 | [exploitation/](./exploitation/) | Notes d'exploitation rédigées au fil des étapes |
 | [rapport/README.md](./rapport/README.md) | Rapport de projet |
 | [diagrammes/](./diagrammes/) | Diagrammes source (SVG) |
@@ -30,6 +31,7 @@ code qu'elle décrit.
 | [0003](./decisions/0003-typescript-et-expo-router.md) | TypeScript et Expo Router |
 | [0004](./decisions/0004-paiement-stripe-ou-simulation.md) | Paiement : Stripe en mode test avec repli |
 | [0005](./decisions/0005-multi-roles.md) | Élargissement du périmètre aux quatre rôles |
+| [0006](./decisions/0006-notifications-double-canal.md) | Notifications : push distantes et repli local |
 
 ## Règle d'or
 

@@ -1,4 +1,4 @@
-# Documentation de l'API REST — Savora v3.0
+# Documentation de l'API REST — Savora v3.1
 
 **Base URL** : `http://<hôte>:3000/api`
 
@@ -235,7 +235,97 @@ Renvoie l'avis existant ou `{ "avis": null }`.
 
 ---
 
-# 7. Administration — `/admin` 🔒 rôle `admin`
+# 7. Menu géré par le restaurant — `/mon-restaurant` 🔒 rôle `restaurant`
+
+Le gestionnaire n'indique jamais quel établissement il gère : c'est son compte
+qui le détermine. Il n'y a donc aucun identifiant à falsifier dans l'URL.
+
+### GET /mon-restaurant
+**200** — `{ "restaurant": {...}, "plats": [...] }`
+
+Contrairement à la vue client, les plats **indisponibles sont inclus** : le
+gestionnaire doit pouvoir les remettre au menu.
+
+**Erreurs** : 400 (compte non rattaché à un restaurant), 403 (autre rôle)
+
+### PUT /mon-restaurant
+Modifie la fiche de l'établissement.
+
+Champs acceptés : `nom`, `cuisine`, `description`, `image`, `adresse`,
+`delai`, `fraisLivraison`.
+
+> `actif` est **ignoré** pour ce rôle : rendre un établissement visible reste
+> une prérogative de l'administration. `note` et `nombreAvis` ne sont jamais
+> acceptés en écriture — ils sont calculés à partir des avis réels.
+
+**Erreurs** : 400 (aucun champ, valeur invalide), 409 (nom déjà pris)
+
+---
+
+### GET /mon-restaurant/plats
+**200** — `{ "restaurant": {...}, "plats": [...] }`
+
+### POST /mon-restaurant/plats
+**Corps**
+```json
+{
+  "nom": "Pizza burrata",
+  "description": "Tomates rôties, burrata et basilic",
+  "prix": 20,
+  "categorie": "Pizzas",
+  "image": "https://...",
+  "populaire": false,
+  "options": [
+    { "nom": "Grand format", "prix": 5 },
+    { "nom": "Base épicée", "prix": 0 }
+  ]
+}
+```
+
+Règles de validation : nom et catégorie d'au moins 2 caractères, image en
+`http`/`https`, prix strictement positif et inférieur à 1000, 20 options
+maximum, pas deux options de même nom, supplément entre 0 et 500.
+
+**201** — `{ "plat": {...} }` · **400** si une règle n'est pas respectée
+
+### PUT /mon-restaurant/plats/:platId
+Modification partielle : seuls les champs envoyés sont pris en compte.
+
+**Erreurs** : 400 (aucun champ, valeur invalide), 403 (plat d'un autre
+restaurant), 404
+
+### DELETE /mon-restaurant/plats/:platId
+**Ne supprime pas le plat** : il est rendu indisponible et retiré du menu
+client. Des commandes passées le référencent — les effacer casserait
+l'historique.
+
+**200** — `{ "message": "Plat retiré du menu", "plat": {...} }`
+
+---
+
+# 8. Notifications — `/notifications` 🔒
+
+### POST /notifications/appareil
+Enregistre le jeton de notification de l'appareil. Appelée après acceptation
+de l'utilisateur, à la connexion et à chaque restauration de session.
+
+**Corps** — `{ "jeton": "ExponentPushToken[...]", "plateforme": "android" }`
+
+**201** — `{ "message": "Appareil enregistré", "appareil": {...} }`
+**400** — le jeton n'a pas le format Expo attendu
+
+Un même appareil peut changer de compte : la clé unique est le jeton, qui est
+alors réattribué au nouvel utilisateur.
+
+### DELETE /notifications/appareil
+Retire l'appareil. Appelée à la déconnexion, pour qu'il ne reçoive plus les
+notifications d'un compte auquel il n'est plus connecté.
+
+**Corps** — `{ "jeton": "ExponentPushToken[...]" }`
+
+---
+
+# 9. Administration — `/admin` 🔒 rôle `admin`
 
 | Méthode | Route | Description |
 |---------|-------|-------------|
@@ -243,15 +333,63 @@ Renvoie l'avis existant ou `{ "avis": null }`.
 | GET | `/admin/utilisateurs` | Liste filtrable (`role`, `recherche`) |
 | PATCH | `/admin/utilisateurs/:id/role` | Change le rôle d'un compte |
 | DELETE | `/admin/utilisateurs/:id` | Supprime un compte (pas le sien) |
+| POST | `/admin/restaurants` | **Crée un établissement**, et éventuellement son compte gestionnaire |
+| PUT | `/admin/restaurants/:id` | Modifie la fiche d'un établissement |
 | GET | `/admin/restaurants` | Liste filtrable (`actif`, `recherche`) |
+| GET | `/admin/restaurants/:restaurantId/plats` | Menu complet d'un établissement |
+| POST | `/admin/restaurants/:restaurantId/plats` | Ajoute un plat à un établissement |
+| PUT | `/admin/plats/:platId` | Modifie un plat |
+| DELETE | `/admin/plats/:platId` | Retire un plat (`?definitive=true` pour supprimer réellement) |
 | PATCH | `/admin/restaurants/:id/actif` | Active ou désactive un restaurant |
 | DELETE | `/admin/restaurants/:id` | Supprime un restaurant |
 | GET | `/admin/commandes` | Liste filtrable (`statut`, `restaurantId`, `livreurId`) |
 | PATCH | `/admin/commandes/:id/annuler` | Annule une commande |
 
+### POST /admin/restaurants — détail
+
+Un restaurant, ce sont **deux objets** : la fiche visible par les clients, et
+le compte du gestionnaire qui fera évoluer les statuts. Cette route crée les
+deux en une fois.
+
+**Corps**
+```json
+{
+  "nom": "Trattoria Bella",
+  "cuisine": "Cuisine italienne",
+  "description": "Une table italienne moderne.",
+  "image": "https://...",
+  "adresse": "1420 rue Sainte-Catherine Ouest, Montréal",
+  "delai": "25–35 min",
+  "fraisLivraison": 2.99,
+  "gestionnaire": {
+    "nom": "Gestion Bella",
+    "courriel": "gestion@bella.ca",
+    "motDePasse": "motdepasse1"
+  }
+}
+```
+
+Le bloc `gestionnaire` est facultatif. S'il est fourni :
+
+- courriel **inconnu** → un compte de rôle `restaurant` est créé et rattaché ;
+- courriel **déjà existant** → ce compte est promu gestionnaire de ce restaurant.
+
+**201**
+```json
+{
+  "restaurant": { "...": "..." },
+  "gestionnaire": { "id": "...", "nom": "...", "courriel": "..." }
+}
+```
+
+**Erreurs** : 400 (champ invalide, mot de passe trop court), 409 (nom déjà pris)
+
+> Sans gestionnaire, personne ne pourra faire évoluer les commandes de cet
+> établissement : elles resteront bloquées au statut « en attente ».
+
 ---
 
-# 8. Événements Socket.IO
+# 10. Événements Socket.IO
 
 Connexion authentifiée par le même jeton JWT :
 
@@ -277,11 +415,16 @@ Un socket sans jeton valide est refusé à la poignée de main.
 | `commande:attribuee` | client, restaurant, livreur | Un livreur accepte |
 | `commande:mise-a-jour` | parties concernées | Tout changement de statut |
 | `commande:notee` | parties concernées | Un avis est déposé |
+
+À chaque événement de commande, le serveur envoie **également** une
+notification poussée aux parties concernées (voir section 8). Les deux canaux
+sont indépendants : Socket.IO met l'écran à jour, la notification atteint
+l'appareil même application fermée.
 | `discussion:nouveau-message` | salon `commande:<id>` | Nouveau message |
 
 ---
 
-# 9. Tester avec Postman ou curl
+# 11. Tester avec Postman ou curl
 
 ```bash
 # Inscription
