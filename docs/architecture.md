@@ -195,9 +195,13 @@ Détail des choix : [ADR 0004](./decisions/0004-paiement-stripe-ou-simulation.md
   pas démontrables dans Expo Go sur Android.
 - Sur l'offre gratuite de Render, l'instance s'endort après inactivité et met
   environ 50 secondes à répondre à la première requête.
-- L'écran de carte n'existe pas sur le web : `react-native-maps` importe des
-  modules internes de React Native absents du navigateur. La séparation se
-  fait par **extension de plateforme** (`carte-livraison.web.tsx`), et non par
-  un import conditionnel : Metro analyse les `require()` à la compilation et
-  inclurait le module malgré la condition. La version web affiche un message
-  explicite.
+- L'écran de carte utilise **deux implémentations selon la plateforme** :
+  react-native-maps sur mobile, Leaflet et OpenStreetMap sur le web. La
+  séparation se fait par **extension de fichier** (`carte-livraison.web.tsx`)
+  et non par un import conditionnel : react-native-maps importe des modules
+  internes de React Native absents du navigateur, et Metro analyse les
+  `require()` à la compilation — la condition d'exécution arriverait trop tard.
+- La carte web dépend d'un CDN (unpkg) pour Leaflet et d'OpenStreetMap pour
+  les fonds de carte. Sans réseau, elle affiche un message de repli. La
+  version mobile suit la position réelle du livreur en continu, ce que la
+  version web ne fait pas.
