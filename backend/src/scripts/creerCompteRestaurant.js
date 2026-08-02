@@ -1,79 +1,75 @@
-require("dotenv").config();
+// Rattachement d'un compte gestionnaire à un restaurant existant.
+//
+//   PowerShell :
+//     $env:NOM_RESTAURANT="Nami Sushi"          # nom exact, voir GET /api/restaurants
+//     $env:COURRIEL_RESTAURANT="gestion@exemple.ca"
+//     $env:MOT_DE_PASSE_RESTAURANT="<mot de passe solide>"
+//     npm run creer-compte-restaurant
+//
+// Depuis la version 3.1, un administrateur peut créer un établissement ET son
+// gestionnaire directement dans l'application : Espace admin → Restaurants →
+// « Nouveau restaurant ». Ce script reste utile pour la toute première
+// installation, quand aucun compte administrateur n'existe encore.
 
-const mongoose = require("mongoose");
 const bcrypt = require("bcrypt");
-const connecter = require("../config/db");
+
 const Utilisateur = require("../models/Utilisateur");
 const Restaurant = require("../models/Restaurant");
+const { echapperRegex } = require("../utils/texte");
+const {
+  ErreurScript,
+  lireVariable,
+  lireCourriel,
+  lireMotDePasse,
+  executerScript,
+} = require("./commun");
 
-function echapperRegex(valeur) {
-  return valeur.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
+const TOURS_BCRYPT = 12;
 
-(async () => {
-  const nom =
-    process.env.NOM_RESTAURANT_COMPTE || "Gestionnaire restaurant";
+executerScript(async () => {
+  const nomRestaurant = lireVariable("NOM_RESTAURANT");
+  const courriel = lireCourriel("COURRIEL_RESTAURANT");
+  const motDePasse = lireMotDePasse("MOT_DE_PASSE_RESTAURANT");
+  const nom = lireVariable("NOM_RESTAURANT_COMPTE", {
+    obligatoire: false,
+    defaut: `Gestionnaire ${nomRestaurant}`,
+  });
 
-  const nomRestaurant = String(
-    process.env.NOM_RESTAURANT || ""
-  ).trim();
-
-  const courriel = String(
-    process.env.COURRIEL_RESTAURANT || ""
-  )
-    .trim()
-    .toLowerCase();
-
-  const motDePasse = String(
-    process.env.MOT_DE_PASSE_RESTAURANT || ""
-  );
-
-  if (!nomRestaurant || !courriel || motDePasse.length < 8) {
-    throw new Error(
-      "Définis NOM_RESTAURANT, COURRIEL_RESTAURANT et MOT_DE_PASSE_RESTAURANT (8 caractères minimum)."
-    );
-  }
-
-  await connecter();
-
+  // Recherche insensible à la casse, sur le nom exact.
   const restaurant = await Restaurant.findOne({
-    nom: {
-      $regex: `^${echapperRegex(nomRestaurant)}$`,
-      $options: "i"
-    }
+    nom: { $regex: `^${echapperRegex(nomRestaurant)}$`, $options: "i" },
   });
 
   if (!restaurant) {
-    throw new Error(
-      `Restaurant introuvable avec le nom « ${nomRestaurant} ».`
+    const disponibles = await Restaurant.find().select("nom").sort({ nom: 1 });
+    const liste = disponibles.map((r) => `  - ${r.nom}`).join("\n");
+
+    throw new ErreurScript(
+      `Aucun restaurant nommé « ${nomRestaurant} ».\n` +
+        (liste ? `Restaurants existants :\n${liste}` : "Aucun restaurant en base : lancer d'abord npm run seed.")
     );
   }
 
-  const motDePasseHache = await bcrypt.hash(motDePasse, 12);
+  const existant = await Utilisateur.findOne({ courriel });
+
+  if (existant && existant.role !== "restaurant") {
+    console.warn(
+      `⚠  Le compte ${courriel} existe déjà avec le rôle « ${existant.role} ».\n` +
+        "   Il va devenir gestionnaire et son mot de passe sera remplacé."
+    );
+  }
 
   const utilisateur = await Utilisateur.findOneAndUpdate(
     { courriel },
     {
       nom,
       courriel,
-      motDePasse: motDePasseHache,
+      motDePasse: await bcrypt.hash(motDePasse, TOURS_BCRYPT),
       role: "restaurant",
-      restaurantId: restaurant._id
+      restaurantId: restaurant._id,
     },
-    {
-      upsert: true,
-      new: true,
-      runValidators: true
-    }
+    { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
   );
 
-  console.log(
-    `Compte restaurant prêt : ${utilisateur.courriel} → ${restaurant.nom}`
-  );
-
-  await mongoose.disconnect();
-})().catch(async (erreur) => {
-  console.error(erreur.message);
-  await mongoose.disconnect();
-  process.exit(1);
+  console.log(`Compte gestionnaire prêt : ${utilisateur.courriel} → ${restaurant.nom}`);
 });

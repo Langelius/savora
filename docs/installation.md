@@ -56,18 +56,32 @@ API Savora 3.0.0 et Socket.IO démarrés
 
 ### Comptes de démonstration
 
+Générer d'abord un mot de passe solide pour chaque compte :
+
+```bash
+node -e "console.log(require('crypto').randomBytes(12).toString('base64url'))"
+```
+
 ```bash
 # Administrateur
-COURRIEL_ADMIN=admin@savora.ca MOT_DE_PASSE_ADMIN=Savora123! npm run creer-admin
+COURRIEL_ADMIN=prenom.nom@exemple.ca MOT_DE_PASSE_ADMIN='<mot de passe généré>' \
+  npm run creer-admin
 
 # Gestionnaire de restaurant — le restaurant est désigné par son NOM exact
 # (voir GET /api/restaurants), pas par son identifiant.
-COURRIEL_RESTAURANT=resto@savora.ca MOT_DE_PASSE_RESTAURANT=Savora123! \
-NOM_RESTAURANT="Nami Sushi" npm run creer-compte-restaurant
+COURRIEL_RESTAURANT=gestion@exemple.ca MOT_DE_PASSE_RESTAURANT='<mot de passe généré>' \
+  NOM_RESTAURANT="Nami Sushi" npm run creer-compte-restaurant
 
 # Livreur
-COURRIEL_LIVREUR=livreur@savora.ca MOT_DE_PASSE_LIVREUR=Savora123! npm run creer-compte-livreur
+COURRIEL_LIVREUR=luc@exemple.ca MOT_DE_PASSE_LIVREUR='<mot de passe généré>' \
+  NOM_LIVREUR="Luc Tremblay" npm run creer-compte-livreur
 ```
+
+> **Aucun identifiant par défaut.** Ces scripts créent des comptes privilégiés :
+> ils refusent de s'exécuter sans courriel et mot de passe explicites, exigent
+> 12 caractères minimum, et rejettent les mots de passe de démonstration qui
+> ont circulé dans la documentation du projet. Un mot de passe écrit dans le
+> dépôt est un mot de passe public.
 
 Sous PowerShell, utiliser `$env:NOM="valeur"` avant l'appel `npm run`.
 

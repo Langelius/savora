@@ -1,69 +1,65 @@
-const mongoose = require("mongoose");
+// Création d'un compte administrateur.
+//
+//   PowerShell :
+//     $env:COURRIEL_ADMIN="prenom.nom@exemple.ca"
+//     $env:MOT_DE_PASSE_ADMIN="<mot de passe solide>"
+//     npm run creer-admin
+//
+//   bash :
+//     COURRIEL_ADMIN=... MOT_DE_PASSE_ADMIN=... npm run creer-admin
+//
+// Aucun identifiant par défaut : ce script ne doit jamais pouvoir créer un
+// compte administrateur dont le mot de passe figure dans le dépôt.
+
 const bcrypt = require("bcrypt");
-const dotenv = require("dotenv");
 
 const Utilisateur = require("../models/Utilisateur");
+const {
+  lireVariable,
+  lireCourriel,
+  lireMotDePasse,
+  executerScript,
+} = require("./commun");
 
-dotenv.config();
+const TOURS_BCRYPT = 12;
 
-async function creerAdmin() {
-  try {
-    if (!process.env.MONGODB_URI) {
-      throw new Error(
-        "La variable MONGODB_URI est absente du fichier .env."
-      );
-    }
+executerScript(async () => {
+  const courriel = lireCourriel("COURRIEL_ADMIN");
+  const motDePasse = lireMotDePasse("MOT_DE_PASSE_ADMIN");
+  const nom = lireVariable("NOM_ADMIN", { obligatoire: false, defaut: "Administrateur Savora" });
 
-    await mongoose.connect(process.env.MONGODB_URI);
+  const existant = await Utilisateur.findOne({ courriel });
 
-    const courriel = "admin@savora.ca";
-    const motDePasse = "Savora123!";
-
-    const motDePasseHache = await bcrypt.hash(
-      motDePasse,
-      10
+  // Promouvoir un compte existant écrase son mot de passe. L'utilisateur doit
+  // le savoir : auparavant, le script le faisait silencieusement.
+  if (existant && existant.role !== "admin") {
+    console.warn(
+      `⚠  Le compte ${courriel} existe déjà avec le rôle « ${existant.role} ».\n` +
+        "   Il va être promu administrateur et son mot de passe remplacé."
     );
-
-    const adminExistant = await Utilisateur.findOne({
-      courriel,
-    });
-
-    if (adminExistant) {
-      adminExistant.nom = "Administrateur Savora";
-      adminExistant.role = "admin";
-      adminExistant.motDePasse = motDePasseHache;
-      adminExistant.restaurantId = null;
-
-      await adminExistant.save();
-
-      console.log(
-        "Le compte existant a été transformé en administrateur."
-      );
-    } else {
-      await Utilisateur.create({
-        nom: "Administrateur Savora",
-        courriel,
-        motDePasse: motDePasseHache,
-        role: "admin",
-        telephone: "0000000000",
-        restaurantId: null,
-      });
-
-      console.log(
-        "Compte administrateur créé avec succès."
-      );
-    }
-
-    console.log("Courriel :", courriel);
-    console.log("Mot de passe :", motDePasse);
-  } catch (erreur) {
-    console.error(
-      "Erreur lors de la création de l'administrateur :",
-      erreur.message
-    );
-  } finally {
-    await mongoose.disconnect();
   }
-}
 
-creerAdmin();
+  const motDePasseHache = await bcrypt.hash(motDePasse, TOURS_BCRYPT);
+
+  const utilisateur = await Utilisateur.findOneAndUpdate(
+    { courriel },
+    {
+      nom,
+      courriel,
+      motDePasse: motDePasseHache,
+      role: "admin",
+      restaurantId: null,
+    },
+    { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
+  );
+
+  console.log(
+    existant
+      ? `Compte administrateur mis à jour : ${utilisateur.courriel}`
+      : `Compte administrateur créé : ${utilisateur.courriel}`
+  );
+
+  // Le mot de passe n'est volontairement pas réaffiché : il resterait dans
+  // l'historique du terminal et dans les journaux de la plateforme d'hébergement.
+  console.log("Mot de passe : celui fourni dans MOT_DE_PASSE_ADMIN.");
+});

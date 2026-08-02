@@ -21,7 +21,7 @@ documentation sont à jour dans la même Pull Request.
 cd backend && npm test
 ```
 
-**30 tests, 6 fichiers.** Ils ne demandent ni MongoDB ni réseau : les règles
+**38 tests, 7 fichiers.** Ils ne demandent ni MongoDB ni réseau : les règles
 métier ont été extraites dans `src/services/` précisément pour cela.
 
 | Fichier | Ce qu'il vérifie |
@@ -31,6 +31,7 @@ métier ont été extraites dans `src/services/` précisément pour cela.
 | `securite.test.js` | Échappement des expressions régulières (ReDoS), limitation de débit à 429, validation et expiration des cartes. |
 | `asynchrone.test.js` | Une promesse rejetée dans un contrôleur atteint bien le middleware d'erreurs — c'était le bug le plus grave corrigé sur le projet. |
 | `menu.test.js` | La note d'un restaurant ne peut pas être imposée dans un formulaire ; un prix nul ou négatif est refusé ; deux options de même nom sont rejetées ; une modification partielle n'exige pas tous les champs. |
+| `scriptsAdministration.test.js` | Les scripts de création de comptes privilégiés refusent tout identifiant par défaut, exigent 12 caractères, et rejettent les mots de passe de démonstration du projet. Ce test a d'ailleurs révélé qu'une variable définie mais vide ne retombait pas sur sa valeur par défaut. |
 | `notifications.test.js` | Chaque statut visible par le client produit un message ; le statut initial n'en produit aucun ; un jeton hors format Expo est refusé ; le message reste lisible quand le restaurant n'est pas peuplé. |
 
 ## Vérification statique — mobile

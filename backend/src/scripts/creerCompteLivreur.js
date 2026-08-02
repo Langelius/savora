@@ -1,27 +1,53 @@
-require("dotenv").config();
+// Création d'un compte livreur.
+//
+//   PowerShell :
+//     $env:COURRIEL_LIVREUR="luc@exemple.ca"
+//     $env:MOT_DE_PASSE_LIVREUR="<mot de passe solide>"
+//     $env:NOM_LIVREUR="Luc Tremblay"
+//     npm run creer-compte-livreur
+//
+// Un administrateur peut aussi promouvoir un compte client existant depuis
+// l'application : Espace admin → Utilisateurs → changer le rôle.
+
 const bcrypt = require("bcrypt");
-const mongoose = require("mongoose");
-const connecterDB = require("../config/db");
+
 const Utilisateur = require("../models/Utilisateur");
+const {
+  lireVariable,
+  lireCourriel,
+  lireMotDePasse,
+  executerScript,
+} = require("./commun");
 
-async function executer() {
-  const courriel = String(process.env.COURRIEL_LIVREUR || "livreur@savora.ca").trim().toLowerCase();
-  const motDePasse = String(process.env.MOT_DE_PASSE_LIVREUR || "Savora123!");
-  const nom = String(process.env.NOM_LIVREUR || "Livreur Savora").trim();
-  const telephone = String(process.env.TELEPHONE_LIVREUR || "").trim();
+const TOURS_BCRYPT = 12;
 
-  if (motDePasse.length < 8) throw new Error("Le mot de passe livreur doit contenir au moins 8 caractères");
-  await connecterDB();
-  const motDePasseHache = await bcrypt.hash(motDePasse, 12);
+executerScript(async () => {
+  const courriel = lireCourriel("COURRIEL_LIVREUR");
+  const motDePasse = lireMotDePasse("MOT_DE_PASSE_LIVREUR");
+  const nom = lireVariable("NOM_LIVREUR", { obligatoire: false, defaut: "Livreur Savora" });
+  const telephone = lireVariable("TELEPHONE_LIVREUR", { obligatoire: false });
+
+  const existant = await Utilisateur.findOne({ courriel });
+
+  if (existant && existant.role !== "livreur") {
+    console.warn(
+      `⚠  Le compte ${courriel} existe déjà avec le rôle « ${existant.role} ».\n` +
+        "   Il va devenir livreur et son mot de passe sera remplacé."
+    );
+  }
+
   const utilisateur = await Utilisateur.findOneAndUpdate(
     { courriel },
-    { nom, courriel, motDePasse: motDePasseHache, telephone, role: "livreur", restaurantId: null },
+    {
+      nom,
+      courriel,
+      motDePasse: await bcrypt.hash(motDePasse, TOURS_BCRYPT),
+      telephone,
+      role: "livreur",
+      restaurantId: null,
+    },
     { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
   );
-  console.log(`Compte livreur prêt : ${utilisateur.courriel} → ${utilisateur.nom}`);
-}
 
-executer().catch((erreur) => {
-  console.error("Création impossible :", erreur.message);
-  process.exitCode = 1;
-}).finally(async () => mongoose.connection.close());
+  console.log(`Compte livreur prêt : ${utilisateur.courriel} → ${utilisateur.nom}`);
+});
