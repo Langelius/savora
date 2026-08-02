@@ -43,8 +43,46 @@ function initialiserSocket(serveurHttp) {
   return io;
 }
 
+// Déclenche les notifications poussées liées à un événement de commande.
+//
+// L'appel n'est jamais attendu et ses erreurs sont absorbées : une
+// notification qui échoue ne doit pas faire échouer un changement de statut.
+function declencherNotifications(commande, evenement) {
+  const notifications = require("../services/notifications");
+
+  const traiter = async () => {
+    if (evenement === "commande:nouvelle") {
+      const Utilisateur = require("../models/Utilisateur");
+      const restaurantId = commande.restaurantId?._id || commande.restaurantId;
+
+      const gestionnaires = await Utilisateur.find({
+        role: "restaurant",
+        restaurantId,
+      }).select("_id");
+
+      const identifiants = [];
+      for (const gestionnaire of gestionnaires) identifiants.push(gestionnaire._id);
+
+      await notifications.notifierNouvelleCommande(commande, identifiants);
+      return;
+    }
+
+    await notifications.notifierChangementStatut(commande);
+  };
+
+  traiter().catch((erreur) => {
+    console.error("Notifications :", erreur.message);
+  });
+}
+
 function emettreMiseAJourCommande(commande, evenement = "commande:mise-a-jour") {
-  if (!io || !commande?._id) return;
+  if (!commande?._id) return;
+
+  // Les notifications poussées partent même si Socket.IO n'est pas initialisé
+  // (cas des tests) : ce sont deux canaux indépendants.
+  declencherNotifications(commande, evenement);
+
+  if (!io) return;
   io.to(`commande:${commande._id}`).emit(evenement, commande);
   io.to(`utilisateur:${commande.utilisateurId}`).emit(evenement, commande);
   io.to(`restaurant:${commande.restaurantId?._id || commande.restaurantId}`).emit(evenement, commande);
