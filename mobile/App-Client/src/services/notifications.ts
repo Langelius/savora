@@ -3,39 +3,74 @@
 // Deux canaux, pour la même raison que le double mode de paiement : la
 // démonstration doit rester possible dans Expo Go.
 //
-//   1. Push distantes — le serveur les envoie via le service Expo Push.
+//   1. Push distantes — envoyées par le serveur via le service Expo Push.
 //      Elles arrivent même application fermée, mais depuis le SDK 53 elles
-//      ne fonctionnent plus dans Expo Go sur Android : il faut un
-//      development build.
-//   2. Notification locale — déclenchée par l'application elle-même à la
-//      réception d'un événement Socket.IO. Fonctionne partout, y compris
-//      dans Expo Go, mais seulement application ouverte.
+//      ne fonctionnent plus dans Expo Go sur Android : un development build
+//      est nécessaire.
+//   2. Notification locale — déclenchée par l'application à la réception d'un
+//      événement Socket.IO. Fonctionne partout, application ouverte.
 //
-// L'enregistrement du jeton échoue silencieusement dans Expo Go : c'est
-// attendu, et l'application continue de fonctionner avec le canal local.
+// ── Pourquoi expo-notifications est chargé paresseusement ────────────────
+//
+// Importer ce module exécute un effet de bord (DevicePushTokenAutoRegistration)
+// qui, dans Expo Go sur Android, journalise une erreur bruyante au démarrage :
+//
+//   « Android Push notifications functionality was removed from Expo Go
+//     with the release of SDK 53 »
+//
+// Comme AuthContext importe ce fichier, l'erreur apparaissait au lancement de
+// l'application, avant même toute tentative d'utiliser les notifications.
+// Le chargement est donc différé, et complètement évité dans Expo Go.
 
-import * as Notifications from "expo-notifications";
-import * as Device from "expo-device";
-import Constants from "expo-constants";
+import Constants, { ExecutionEnvironment } from "expo-constants";
 import { Platform } from "react-native";
 
 import { api } from "./api";
 
-// Affiche la notification même lorsque l'application est au premier plan.
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-});
+// Expo Go se reconnaît à son environnement d'exécution « storeClient ».
+const DANS_EXPO_GO =
+  Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
+// Les push distantes sont impossibles dans Expo Go sur Android.
+const PUSH_DISTANTES_POSSIBLES = !(DANS_EXPO_GO && Platform.OS === "android");
+
+let moduleNotifications: typeof import("expo-notifications") | null = null;
+let gestionnaireInstalle = false;
 let jetonCourant: string | null = null;
+
+// Charge expo-notifications à la demande, jamais à l'import du fichier.
+function chargerNotifications() {
+  if (moduleNotifications) return moduleNotifications;
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    moduleNotifications = require("expo-notifications");
+  } catch {
+    return null;
+  }
+
+  if (moduleNotifications && !gestionnaireInstalle) {
+    // Affiche la notification même application au premier plan.
+    moduleNotifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowBanner: true,
+        shouldShowList: true,
+        shouldPlaySound: true,
+        shouldSetBadge: false,
+      }),
+    });
+    gestionnaireInstalle = true;
+  }
+
+  return moduleNotifications;
+}
 
 // Android exige un canal déclaré, sinon aucune notification ne s'affiche.
 async function preparerCanalAndroid() {
   if (Platform.OS !== "android") return;
+
+  const Notifications = chargerNotifications();
+  if (!Notifications) return;
 
   await Notifications.setNotificationChannelAsync("commandes", {
     name: "Suivi des commandes",
@@ -48,10 +83,18 @@ async function preparerCanalAndroid() {
 // Demande l'autorisation, récupère le jeton Expo et l'envoie au serveur.
 // Renvoie null si ce n'est pas possible — ce n'est pas une erreur.
 export async function activerNotifications(token: string): Promise<string | null> {
+  // Dans Expo Go sur Android, on n'essaie même pas : le canal local suffit
+  // et cela évite l'erreur au démarrage.
+  if (!PUSH_DISTANTES_POSSIBLES) return null;
+
   try {
+    const Notifications = chargerNotifications();
+    if (!Notifications) return null;
+
     await preparerCanalAndroid();
 
     // Un simulateur ne peut pas recevoir de notification distante.
+    const Device = require("expo-device");
     if (!Device.isDevice) return null;
 
     const existantes = await Notifications.getPermissionsAsync();
@@ -62,13 +105,12 @@ export async function activerNotifications(token: string): Promise<string | null
       statut = demande.status;
     }
 
-    // L'utilisateur a refusé : on n'insiste pas, le suivi temps réel
-    // à l'écran reste disponible.
+    // L'utilisateur a refusé : on n'insiste pas, le suivi à l'écran reste
+    // disponible et les notifications locales continuent de fonctionner.
     if (statut !== "granted") return null;
 
     const projectId =
-      Constants.expoConfig?.extra?.eas?.projectId ??
-      Constants.easConfig?.projectId;
+      Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
 
     const resultat = await Notifications.getExpoPushTokenAsync(
       projectId ? { projectId } : undefined
@@ -79,8 +121,6 @@ export async function activerNotifications(token: string): Promise<string | null
 
     return jetonCourant;
   } catch (erreur) {
-    // Cas attendu dans Expo Go depuis le SDK 53 sur Android. On journalise
-    // sans alerter l'utilisateur : les notifications locales prennent le relais.
     console.log(
       "Notifications distantes indisponibles :",
       erreur instanceof Error ? erreur.message : erreur
@@ -104,9 +144,14 @@ export async function desactiverNotifications(token: string) {
 }
 
 // Affiche immédiatement une notification locale.
-// Utilisée par l'écran de suivi à la réception d'un événement Socket.IO.
+// Fonctionne dans Expo Go, y compris sur Android.
 export async function notifierLocalement(titre: string, corps: string) {
   try {
+    const Notifications = chargerNotifications();
+    if (!Notifications) return;
+
+    await preparerCanalAndroid();
+
     await Notifications.scheduleNotificationAsync({
       content: { title: titre, body: corps, sound: true },
       trigger: null, // immédiat
@@ -114,6 +159,11 @@ export async function notifierLocalement(titre: string, corps: string) {
   } catch {
     // L'affichage d'une notification ne doit jamais interrompre l'écran.
   }
+}
+
+// Indique le canal réellement actif — utile pour l'afficher en démonstration.
+export function modeNotifications(): "distant" | "local" {
+  return PUSH_DISTANTES_POSSIBLES ? "distant" : "local";
 }
 
 // Libellés du suivi, alignés sur ceux du serveur (services/notifications.js).

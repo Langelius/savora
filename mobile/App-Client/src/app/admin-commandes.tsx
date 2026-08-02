@@ -4,11 +4,11 @@ import {
   Alert,
   FlatList,
   Pressable,
-  SafeAreaView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { api, Commande } from "../services/api";
 import { useAuth } from "../context/AuthContext";

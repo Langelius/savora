@@ -3,11 +3,11 @@ import {
   ActivityIndicator,
   Alert,
   Pressable,
-  SafeAreaView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import MapView, { Marker, Polyline } from "react-native-maps";
 import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
