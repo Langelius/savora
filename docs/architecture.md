@@ -195,6 +195,9 @@ Détail des choix : [ADR 0004](./decisions/0004-paiement-stripe-ou-simulation.md
   pas démontrables dans Expo Go sur Android.
 - Sur l'offre gratuite de Render, l'instance s'endort après inactivité et met
   environ 50 secondes à répondre à la première requête.
-- L'écran de carte n'existe pas sur le web : `react-native-maps` n'a pas de
-  point d'entrée navigateur. L'écran affiche un message explicite au lieu de
-  faire échouer l'application.
+- L'écran de carte n'existe pas sur le web : `react-native-maps` importe des
+  modules internes de React Native absents du navigateur. La séparation se
+  fait par **extension de plateforme** (`carte-livraison.web.tsx`), et non par
+  un import conditionnel : Metro analyse les `require()` à la compilation et
+  inclurait le module malgré la condition. La version web affiche un message
+  explicite.
