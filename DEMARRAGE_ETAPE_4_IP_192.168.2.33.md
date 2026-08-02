@@ -1,0 +1,48 @@
+# Démarrage de l'étape 4 — Livreur
+
+## 1. Backend
+
+Ouvrir un premier terminal dans `backend` :
+
+```powershell
+npm install
+npm run dev
+```
+
+Le terminal doit afficher l'adresse :
+
+```text
+http://192.168.2.15:3000/api/sante
+```
+
+Tester cette adresse dans le navigateur du téléphone. Une réponse JSON avec `ok: true` confirme que le téléphone atteint le serveur.
+
+## 2. Pare-feu Windows
+
+Exécuter PowerShell en administrateur :
+
+```powershell
+netsh advfirewall firewall add rule name="Savora API 3000" dir=in action=allow protocol=TCP localport=3000
+```
+
+## 3. Application Expo
+
+Ouvrir un deuxième terminal dans `mobile/App-Client` :
+
+```powershell
+npm install
+npx expo start --clear --lan
+```
+
+Scanner le QR code avec Expo Go. Le téléphone et le PC doivent être connectés au même Wi-Fi.
+
+## 4. Configuration appliquée
+
+Expo lit maintenant le fichier `mobile/App-Client/.env` :
+
+```env
+EXPO_PUBLIC_API_URL=http://192.168.2.15:3000/api
+EXPO_PUBLIC_SOCKET_URL=http://192.168.2.15:3000
+```
+
+Après toute modification du `.env`, arrêter Expo avec `Ctrl+C` puis relancer avec `npx expo start --clear --lan`.

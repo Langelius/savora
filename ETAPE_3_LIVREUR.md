@@ -1,0 +1,29 @@
+# Étape 3 — Espace livreur
+
+## Fonctionnalités
+
+- Liste en temps réel des commandes au statut `prête`.
+- Attribution atomique d'une commande à un seul livreur.
+- Parcours : `prête → prise en charge → en route → livrée`.
+- Historique des statuts conservé.
+- Le client et le restaurant reçoivent les mises à jour Socket.IO.
+
+## Créer le compte livreur
+
+Dans `backend` (PowerShell) :
+
+```powershell
+$env:COURRIEL_LIVREUR="livreur@savora.ca"
+$env:MOT_DE_PASSE_LIVREUR="Savora123!"
+$env:NOM_LIVREUR="Livreur Savora"
+$env:TELEPHONE_LIVREUR="514-555-0101"
+npm run creer-compte-livreur
+```
+
+## Tester
+
+1. Démarrer le backend et Expo.
+2. Depuis un compte client, créer une commande.
+3. Depuis le compte restaurant, la passer à `confirmée`, `en préparation`, puis `prête`.
+4. Se connecter avec le compte livreur.
+5. Accepter la livraison, puis utiliser les boutons jusqu'à `livrée`.

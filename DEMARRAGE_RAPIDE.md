@@ -1,0 +1,37 @@
+# Savora — démarrage rapide
+
+## 1. Backend
+
+```bash
+cd backend
+cp .env.example .env
+npm install
+npm run seed
+npm run dev
+```
+
+MongoDB doit être démarré. L'API répond sur `http://localhost:3000`.
+
+## 2. Frontend Expo
+
+```bash
+cd mobile/App-Client
+cp .env.example .env
+npm install
+npx expo start -c
+```
+
+Choisir l'URL selon l'appareil :
+
+- navigateur ou simulateur iOS : `http://localhost:3000/api`
+- émulateur Android : `http://10.0.2.2:3000/api`
+- téléphone physique : `http://IP_LOCALE_DU_PC:3000/api`
+
+Le téléphone et le PC doivent être sur le même Wi-Fi. Autoriser Node.js dans le pare-feu Windows.
+
+## Vérification
+
+```bash
+cd mobile/App-Client
+npm run typecheck
+```

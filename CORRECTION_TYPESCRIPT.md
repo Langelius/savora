@@ -1,0 +1,19 @@
+# Correction TypeScript / JSX
+
+Les erreurs `Cannot use JSX unless the --jsx flag is provided` venaient de VS Code qui n'utilisait pas toujours la configuration TypeScript du projet Expo.
+
+## Démarrage
+
+```bash
+cd mobile/App-Client
+npm install
+npx expo start -c
+```
+
+## Vérification TypeScript
+
+```bash
+npx tsc --noEmit
+```
+
+Dans VS Code, ouvre le dossier `Savora-Restaurant`, puis exécute la commande **TypeScript: Select TypeScript Version** et choisis **Use Workspace Version** si VS Code le demande.

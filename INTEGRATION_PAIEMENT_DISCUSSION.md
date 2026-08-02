@@ -1,0 +1,42 @@
+# Paiement et discussion ajoutés
+
+## Adresse réseau
+- API : `http://192.168.2.15:3000/api`
+- Socket.IO : `http://192.168.2.15:3000`
+
+## Paiement
+- Carte bancaire simulée avec validation du nom, des 16 chiffres, de l'expiration et du CVV.
+- Paiement à la livraison disponible.
+- La commande conserve `methodePaiement`, `statutPaiement`, `referencePaiement` et `datePaiement`.
+- Aucune vraie carte n'est débitée.
+
+Carte de test :
+- Numéro : `4242 4242 4242 4242`
+- Expiration : `12/30`
+- CVV : `123`
+- Nom : n'importe quel nom de 3 caractères ou plus.
+
+## Discussion
+- Une discussion est liée à chaque commande.
+- Participants autorisés : client de la commande, restaurant concerné, livreur assigné et administrateur.
+- Routes :
+  - `GET /api/commandes/:id/messages`
+  - `POST /api/commandes/:id/messages`
+- Les nouveaux messages apparaissent en temps réel avec Socket.IO.
+
+## Démarrage
+Backend :
+```powershell
+cd backend
+npm install
+npm run dev
+```
+
+Mobile :
+```powershell
+cd mobile/App-Client
+npm install
+npx expo start --clear
+```
+
+Le téléphone et le PC doivent être connectés au même Wi-Fi. Autoriser le port 3000 dans le pare-feu Windows si nécessaire.
