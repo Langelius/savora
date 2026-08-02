@@ -1,0 +1,47 @@
+# Normalisation des fins de ligne.
+#
+# L'équipe travaille sous Windows, où les éditeurs écrivent en CRLF, alors que
+# le dépôt et l'intégration continue (Ubuntu) utilisent LF. Sans ce fichier,
+# un simple enregistrement fait apparaître tout un fichier comme modifié :
+# 1414 lignes « changées » alors que le contenu est identique. Les revues de
+# Pull Request deviennent illisibles et les fusions produisent de faux conflits.
+#
+# « text=auto » : Git stocke tout en LF et laisse chaque poste utiliser la
+# convention de son système en local.
+
+* text=auto
+
+# Fichiers de code : LF dans le dépôt, quelle que soit la plateforme.
+*.js    text eol=lf
+*.jsx   text eol=lf
+*.ts    text eol=lf
+*.tsx   text eol=lf
+*.json  text eol=lf
+*.md    text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.css   text eol=lf
+*.html  text eol=lf
+
+# Scripts destinés à Windows : ils doivent conserver leurs CRLF, sinon
+# certains interpréteurs les rejettent.
+*.bat   text eol=crlf
+*.cmd   text eol=crlf
+*.ps1   text eol=crlf
+
+# Fichiers binaires : aucune conversion, sous peine de les corrompre.
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.pdf   binary
+*.docx  binary
+*.xlsx  binary
+*.pptx  binary
+*.keystore binary
+*.jar   binary
+*.ttf   binary
+*.otf   binary
+*.woff  binary
+*.woff2 binary
