@@ -1,60 +1,69 @@
 const Commande = require("../models/Commande");
 const Message = require("../models/Message");
-const Utilisateur = require("../models/Utilisateur");
 const { emettreMessageCommande } = require("../config/socket");
 
-async function verifierAccesCommande(commande, utilisateurConnecte) {
-  const utilisateurId = String(utilisateurConnecte.id);
+// Une discussion est rattachée à une commande. Y ont accès : le client qui a
+// commandé, le restaurant concerné, le livreur assigné, et l'administration.
+function verifierAccesCommande(commande, utilisateur) {
+  if (utilisateur.role === "admin") return true;
+
   const clientId = String(commande.utilisateurId?._id || commande.utilisateurId);
-  const livreurId = commande.livreurId ? String(commande.livreurId?._id || commande.livreurId) : null;
+  const livreurId = commande.livreurId
+    ? String(commande.livreurId?._id || commande.livreurId)
+    : null;
+  const restaurantId = String(commande.restaurantId?._id || commande.restaurantId);
 
-  if (utilisateurConnecte.role === "admin") return true;
-  if (utilisateurConnecte.role === "client") return clientId === utilisateurId;
-  if (utilisateurConnecte.role === "livreur") return livreurId === utilisateurId;
-
-  if (utilisateurConnecte.role === "restaurant") {
-    const utilisateur = await Utilisateur.findById(utilisateurId).select("restaurantId");
-    return Boolean(utilisateur?.restaurantId) &&
-      String(utilisateur.restaurantId) === String(commande.restaurantId?._id || commande.restaurantId);
-  }
+  if (utilisateur.role === "client") return clientId === utilisateur.id;
+  if (utilisateur.role === "livreur") return livreurId === utilisateur.id;
+  if (utilisateur.role === "restaurant") return utilisateur.restaurantId === restaurantId;
 
   return false;
 }
 
-async function listerMessages(req, res) {
-  const commande = await Commande.findById(req.params.id);
-  if (!commande) return res.status(404).json({ message: "Commande introuvable" });
-  if (!(await verifierAccesCommande(commande, req.utilisateur))) {
-    return res.status(403).json({ message: "Accès interdit à cette discussion" });
+async function listerMessages(requete, reponse) {
+  const commande = await Commande.findById(requete.params.id);
+  if (!commande) return reponse.status(404).json({ message: "Commande introuvable" });
+
+  if (!verifierAccesCommande(commande, requete.utilisateur)) {
+    return reponse.status(403).json({ message: "Accès interdit à cette discussion" });
   }
 
   const messages = await Message.find({ commandeId: commande._id })
     .populate("auteurId", "nom role")
-    .sort({ createdAt: 1 });
+    .sort({ createdAt: 1 })
+    .limit(500);
 
-  res.json({ messages });
+  reponse.json({ messages });
 }
 
-async function envoyerMessage(req, res) {
-  const texte = String(req.body.texte || "").trim();
-  if (!texte) return res.status(400).json({ message: "Le message est vide" });
-  if (texte.length > 1000) return res.status(400).json({ message: "Le message est trop long" });
+async function envoyerMessage(requete, reponse) {
+  const texte = String(requete.body.texte || "").trim();
 
-  const commande = await Commande.findById(req.params.id);
-  if (!commande) return res.status(404).json({ message: "Commande introuvable" });
-  if (!(await verifierAccesCommande(commande, req.utilisateur))) {
-    return res.status(403).json({ message: "Accès interdit à cette discussion" });
+  if (!texte) return reponse.status(400).json({ message: "Le message est vide" });
+  if (texte.length > 1000) return reponse.status(400).json({ message: "Le message est trop long" });
+
+  const commande = await Commande.findById(requete.params.id);
+  if (!commande) return reponse.status(404).json({ message: "Commande introuvable" });
+
+  if (!verifierAccesCommande(commande, requete.utilisateur)) {
+    return reponse.status(403).json({ message: "Accès interdit à cette discussion" });
+  }
+
+  // Une commande terminée depuis longtemps n'a plus à recevoir de messages.
+  if (commande.statut === "annulée") {
+    return reponse.status(409).json({ message: "Cette commande est annulée" });
   }
 
   let message = await Message.create({
     commandeId: commande._id,
-    auteurId: req.utilisateur.id,
+    auteurId: requete.utilisateur.id,
     texte,
   });
+
   message = await message.populate("auteurId", "nom role");
   emettreMessageCommande(commande._id, message);
 
-  res.status(201).json({ message });
+  reponse.status(201).json({ message });
 }
 
-module.exports = { listerMessages, envoyerMessage };
+module.exports = { listerMessages, envoyerMessage, verifierAccesCommande };

@@ -1,193 +1,296 @@
 const Commande = require("../models/Commande");
 const Plat = require("../models/Plat");
 const Restaurant = require("../models/Restaurant");
-const Utilisateur = require("../models/Utilisateur");
 const { emettreMiseAJourCommande } = require("../config/socket");
+const { calculerPrixLigne, calculerTotaux } = require("../services/tarification");
+const { payerCommande } = require("../services/paiement");
+const {
+  estStatutConnu,
+  transitionAutorisee,
+  roleAutorise,
+} = require("../services/statutsCommande");
 
-const TRANSITIONS = {
-  "en attente": ["confirmée", "annulée"],
-  "confirmée": ["en préparation", "annulée"],
-  "en préparation": ["prête", "annulée"],
-  "prête": ["prise en charge"],
-  "prise en charge": ["en route"],
-  "en route": ["livrée"],
-  "livrée": [],
-  "annulée": [],
-};
-
-const STATUTS_RESTAURANT = ["confirmée", "en préparation", "prête", "annulée"];
-const STATUTS_LIVREUR = ["en route", "livrée"];
 const POPULATE_COMMANDE = [
-  { path: "restaurantId", select: "nom image delai adresse" },
+  { path: "restaurantId", select: "nom image delai adresse fraisLivraison" },
   { path: "livreurId", select: "nom telephone" },
   { path: "utilisateurId", select: "nom telephone" },
 ];
 
+const PAGE_PAR_DEFAUT = 20;
+const PAGE_MAXIMUM = 100;
+
+function lirePagination(requete) {
+  const page = Math.max(1, Number(requete.query.page) || 1);
+  const taille = Math.min(
+    PAGE_MAXIMUM,
+    Math.max(1, Number(requete.query.taille) || PAGE_PAR_DEFAUT)
+  );
+  return { page, taille, saut: (page - 1) * taille };
+}
+
 async function peuplerCommande(commande) {
-  for (const option of POPULATE_COMMANDE) await commande.populate(option);
+  for (const option of POPULATE_COMMANDE) {
+    await commande.populate(option);
+  }
   return commande;
 }
 
-async function creerCommande(req, res) {
-  const { restaurantId, plats, adresseLivraison, methodePaiement = "carte", paiement } = req.body;
+// Vérifie qu'un compte restaurant agit bien sur une commande de son restaurant.
+function restaurantCorrespond(utilisateur, commande) {
+  const idCommande = String(commande.restaurantId?._id || commande.restaurantId);
+  return Boolean(utilisateur.restaurantId) && utilisateur.restaurantId === idCommande;
+}
+
+async function creerCommande(requete, reponse) {
+  const {
+    restaurantId,
+    plats,
+    adresseLivraison,
+    methodePaiement = "carte",
+    paiement,
+  } = requete.body;
+
   if (!restaurantId || !Array.isArray(plats) || plats.length === 0 || !adresseLivraison) {
-    return res.status(400).json({ message: "Restaurant, plats et adresse sont obligatoires" });
+    return reponse.status(400).json({ message: "Restaurant, plats et adresse sont obligatoires" });
+  }
+
+  if (!["carte", "livraison"].includes(methodePaiement)) {
+    return reponse.status(400).json({ message: "Méthode de paiement invalide" });
   }
 
   const restaurant = await Restaurant.findById(restaurantId);
-  if (!restaurant || !restaurant.actif) return res.status(404).json({ message: "Restaurant introuvable" });
-
-  const ids = plats.map((p) => p.platId);
-  const platsDb = await Plat.find({ _id: { $in: ids }, restaurantId, disponible: true });
-  if (platsDb.length !== new Set(ids.map(String)).size) {
-    return res.status(400).json({ message: "Un ou plusieurs plats sont invalides" });
+  if (!restaurant || !restaurant.actif) {
+    return reponse.status(404).json({ message: "Restaurant introuvable" });
   }
 
-  const lignes = plats.map((ligne) => {
-    const plat = platsDb.find((p) => String(p._id) === String(ligne.platId));
-    const quantite = Math.max(1, Number(ligne.quantite) || 1);
-    return { platId: plat._id, nom: plat.nom, prix: plat.prix, quantite, options: Array.isArray(ligne.options) ? ligne.options : [] };
+  // Les prix ne viennent jamais du client : ils sont relus en base.
+  const identifiants = [];
+  for (const ligne of plats) {
+    identifiants.push(ligne.platId);
+  }
+
+  const platsDb = await Plat.find({
+    _id: { $in: identifiants },
+    restaurantId,
+    disponible: true,
   });
 
-  const sousTotal = Number(lignes.reduce((total, ligne) => total + ligne.prix * ligne.quantite, 0).toFixed(2));
-  const fraisLivraison = restaurant.fraisLivraison;
-  const taxes = Number((sousTotal * 0.14975).toFixed(2));
-  const total = Number((sousTotal + fraisLivraison + taxes).toFixed(2));
-
-  if (!["carte", "livraison"].includes(methodePaiement)) {
-    return res.status(400).json({ message: "Méthode de paiement invalide" });
+  const identifiantsUniques = new Set(identifiants.map(String));
+  if (platsDb.length !== identifiantsUniques.size) {
+    return reponse.status(400).json({ message: "Un ou plusieurs plats sont invalides" });
   }
 
-  let statutPaiement = "à payer";
-  let referencePaiement = null;
-  let datePaiement = null;
+  const lignes = [];
+  for (const ligne of plats) {
+    let plat = null;
+    for (const candidat of platsDb) {
+      if (String(candidat._id) === String(ligne.platId)) {
+        plat = candidat;
+        break;
+      }
+    }
+
+    const options = Array.isArray(ligne.options) ? ligne.options : [];
+    const quantite = Math.max(1, Math.min(50, Number(ligne.quantite) || 1));
+
+    lignes.push({
+      platId: plat._id,
+      nom: plat.nom,
+      prix: calculerPrixLigne(plat, options),
+      quantite,
+      options,
+    });
+  }
+
+  const totaux = calculerTotaux(lignes, restaurant.fraisLivraison);
+
+  // Le paiement est traité avant l'enregistrement : une commande n'existe
+  // en base que si le paiement a réussi, ou s'il est différé à la livraison.
+  let etatPaiement = {
+    fournisseurPaiement: "comptant",
+    statutPaiement: "à payer",
+    referencePaiement: null,
+    datePaiement: null,
+  };
 
   if (methodePaiement === "carte") {
-    const numero = String(paiement?.numero || "").replace(/\s/g, "");
-    const expiration = String(paiement?.expiration || "").trim();
-    const cvv = String(paiement?.cvv || "").trim();
-    const titulaire = String(paiement?.titulaire || "").trim();
-    if (!/^\d{16}$/.test(numero) || !/^\d{2}\/\d{2}$/.test(expiration) || !/^\d{3,4}$/.test(cvv) || titulaire.length < 3) {
-      return res.status(400).json({ message: "Informations de carte invalides" });
-    }
-    statutPaiement = "payé";
-    referencePaiement = `SIM-${Date.now()}-${numero.slice(-4)}`;
-    datePaiement = new Date();
+    etatPaiement = await payerCommande({
+      montant: totaux.total,
+      carte: paiement,
+      description: `Savora — commande chez ${restaurant.nom}`,
+    });
   }
 
   let commande = await Commande.create({
-    utilisateurId: req.utilisateur.id,
+    utilisateurId: requete.utilisateur.id,
     restaurantId,
     plats: lignes,
-    sousTotal,
-    fraisLivraison,
-    taxes,
-    total,
-    adresseLivraison,
+    ...totaux,
+    adresseLivraison: String(adresseLivraison).trim(),
     methodePaiement,
-    statutPaiement,
-    referencePaiement,
-    datePaiement,
+    ...etatPaiement,
   });
-  commande = await peuplerCommande(commande);
 
+  commande = await peuplerCommande(commande);
   emettreMiseAJourCommande(commande, "commande:nouvelle");
-  res.status(201).json({ commande });
+
+  reponse.status(201).json({ commande });
 }
 
-async function listerMesCommandes(req, res) {
+async function listerMesCommandes(requete, reponse) {
+  const { page, taille, saut } = lirePagination(requete);
+  const utilisateur = requete.utilisateur;
+
   let filtre = {};
-  if (req.utilisateur.role === "client") filtre = { utilisateurId: req.utilisateur.id };
-  if (req.utilisateur.role === "livreur") filtre = { livreurId: req.utilisateur.id };
-  if (req.utilisateur.role === "restaurant") {
-    const utilisateur = await Utilisateur.findById(req.utilisateur.id).select("restaurantId");
-    if (!utilisateur?.restaurantId) return res.status(400).json({ message: "Ce compte restaurant n'est lié à aucun restaurant" });
+  if (utilisateur.role === "client") {
+    filtre = { utilisateurId: utilisateur.id };
+  } else if (utilisateur.role === "livreur") {
+    filtre = { livreurId: utilisateur.id };
+  } else if (utilisateur.role === "restaurant") {
+    if (!utilisateur.restaurantId) {
+      return reponse.status(400).json({
+        message: "Ce compte restaurant n'est lié à aucun restaurant",
+      });
+    }
     filtre = { restaurantId: utilisateur.restaurantId };
   }
 
-  const commandes = await Commande.find(filtre).populate(POPULATE_COMMANDE).sort({ createdAt: -1 });
-  res.json({ commandes });
+  const [commandes, total] = await Promise.all([
+    Commande.find(filtre)
+      .populate(POPULATE_COMMANDE)
+      .sort({ createdAt: -1 })
+      .skip(saut)
+      .limit(taille),
+    Commande.countDocuments(filtre),
+  ]);
+
+  reponse.json({ commandes, pagination: { page, taille, total } });
 }
 
-async function listerCommandesDisponibles(req, res) {
+async function listerCommandesDisponibles(_requete, reponse) {
   const commandes = await Commande.find({ statut: "prête", livreurId: null })
     .populate(POPULATE_COMMANDE)
-    .sort({ updatedAt: 1 });
-  res.json({ commandes });
+    .sort({ updatedAt: 1 })
+    .limit(PAGE_MAXIMUM);
+
+  reponse.json({ commandes });
 }
 
-async function accepterLivraison(req, res) {
-  // findOneAndUpdate rend l'attribution atomique : deux livreurs ne peuvent pas prendre la même commande.
+async function accepterLivraison(requete, reponse) {
+  // findOneAndUpdate rend l'attribution atomique : deux livreurs qui appuient
+  // au même instant ne peuvent pas obtenir la même commande.
   let commande = await Commande.findOneAndUpdate(
-    { _id: req.params.id, statut: "prête", livreurId: null },
+    { _id: requete.params.id, statut: "prête", livreurId: null },
     {
-      $set: { livreurId: req.utilisateur.id, statut: "prise en charge" },
-      $push: { historiqueStatuts: { statut: "prise en charge", modifiePar: req.utilisateur.id, date: new Date() } },
+      $set: { livreurId: requete.utilisateur.id, statut: "prise en charge" },
+      $push: {
+        historiqueStatuts: {
+          statut: "prise en charge",
+          modifiePar: requete.utilisateur.id,
+          date: new Date(),
+        },
+      },
     },
     { new: true, runValidators: true }
   );
 
   if (!commande) {
-    const existe = await Commande.exists({ _id: req.params.id });
-    return res.status(existe ? 409 : 404).json({
-      message: existe ? "Cette livraison a déjà été acceptée ou n'est plus disponible" : "Commande introuvable",
+    const existe = await Commande.exists({ _id: requete.params.id });
+    return reponse.status(existe ? 409 : 404).json({
+      message: existe
+        ? "Cette livraison a déjà été acceptée ou n'est plus disponible"
+        : "Commande introuvable",
     });
   }
 
   commande = await peuplerCommande(commande);
   emettreMiseAJourCommande(commande, "commande:attribuee");
-  res.json({ commande });
+
+  reponse.json({ commande });
 }
 
-async function obtenirCommande(req, res) {
-  const commande = await Commande.findById(req.params.id).populate(POPULATE_COMMANDE);
-  if (!commande) return res.status(404).json({ message: "Commande introuvable" });
+async function obtenirCommande(requete, reponse) {
+  const commande = await Commande.findById(requete.params.id).populate(POPULATE_COMMANDE);
+  if (!commande) return reponse.status(404).json({ message: "Commande introuvable" });
 
-  const estProprietaire = String(commande.utilisateurId?._id || commande.utilisateurId) === String(req.utilisateur.id);
-  const estLivreur = commande.livreurId && String(commande.livreurId._id || commande.livreurId) === String(req.utilisateur.id);
-  if (req.utilisateur.role === "client" && !estProprietaire) return res.status(403).json({ message: "Accès interdit" });
-  if (req.utilisateur.role === "livreur" && !estLivreur) return res.status(403).json({ message: "Accès interdit" });
-  if (req.utilisateur.role === "restaurant") {
-    const utilisateur = await Utilisateur.findById(req.utilisateur.id).select("restaurantId");
-    if (!utilisateur?.restaurantId || String(utilisateur.restaurantId) !== String(commande.restaurantId?._id || commande.restaurantId)) {
-      return res.status(403).json({ message: "Cette commande n'appartient pas à votre restaurant" });
+  const utilisateur = requete.utilisateur;
+
+  if (utilisateur.role === "client") {
+    const proprietaire = String(commande.utilisateurId?._id || commande.utilisateurId);
+    if (proprietaire !== utilisateur.id) {
+      return reponse.status(403).json({ message: "Accès interdit" });
     }
   }
 
-  res.json({ commande });
+  if (utilisateur.role === "livreur") {
+    const livreur = commande.livreurId
+      ? String(commande.livreurId._id || commande.livreurId)
+      : null;
+    if (livreur !== utilisateur.id) {
+      return reponse.status(403).json({ message: "Accès interdit" });
+    }
+  }
+
+  if (utilisateur.role === "restaurant" && !restaurantCorrespond(utilisateur, commande)) {
+    return reponse.status(403).json({
+      message: "Cette commande n'appartient pas à votre restaurant",
+    });
+  }
+
+  reponse.json({ commande });
 }
 
-async function modifierStatut(req, res) {
-  const nouveauStatut = String(req.body.statut || "");
-  const commande = await Commande.findById(req.params.id);
-  if (!commande) return res.status(404).json({ message: "Commande introuvable" });
-  if (!Commande.STATUTS.includes(nouveauStatut)) return res.status(400).json({ message: "Statut invalide" });
+async function modifierStatut(requete, reponse) {
+  const nouveauStatut = String(requete.body.statut || "");
 
-  if (req.utilisateur.role === "restaurant") {
-    const utilisateur = await Utilisateur.findById(req.utilisateur.id).select("restaurantId");
-    if (!utilisateur?.restaurantId || String(utilisateur.restaurantId) !== String(commande.restaurantId)) {
-      return res.status(403).json({ message: "Cette commande n'appartient pas à votre restaurant" });
-    }
-    if (!STATUTS_RESTAURANT.includes(nouveauStatut)) return res.status(403).json({ message: "Ce statut doit être géré par un livreur" });
-  }
-  if (req.utilisateur.role === "livreur") {
-    if (!commande.livreurId || String(commande.livreurId) !== String(req.utilisateur.id)) {
-      return res.status(403).json({ message: "Cette livraison ne vous est pas attribuée" });
-    }
-    if (!STATUTS_LIVREUR.includes(nouveauStatut)) return res.status(403).json({ message: "Utilisez le bouton Accepter pour prendre une livraison" });
+  if (!estStatutConnu(nouveauStatut)) {
+    return reponse.status(400).json({ message: "Statut invalide" });
   }
 
-  if (!TRANSITIONS[commande.statut].includes(nouveauStatut)) {
-    return res.status(409).json({ message: `Transition impossible : ${commande.statut} → ${nouveauStatut}` });
+  const commande = await Commande.findById(requete.params.id);
+  if (!commande) return reponse.status(404).json({ message: "Commande introuvable" });
+
+  const utilisateur = requete.utilisateur;
+
+  if (utilisateur.role === "restaurant" && !restaurantCorrespond(utilisateur, commande)) {
+    return reponse.status(403).json({
+      message: "Cette commande n'appartient pas à votre restaurant",
+    });
+  }
+
+  if (utilisateur.role === "livreur") {
+    const livreur = commande.livreurId ? String(commande.livreurId) : null;
+    if (livreur !== utilisateur.id) {
+      return reponse.status(403).json({ message: "Cette livraison ne vous est pas attribuée" });
+    }
+  }
+
+  if (!roleAutorise(utilisateur.role, nouveauStatut)) {
+    return reponse.status(403).json({
+      message: `Le rôle « ${utilisateur.role} » ne peut pas poser le statut « ${nouveauStatut} »`,
+    });
+  }
+
+  if (!transitionAutorisee(commande.statut, nouveauStatut)) {
+    return reponse.status(409).json({
+      message: `Transition impossible : ${commande.statut} → ${nouveauStatut}`,
+    });
   }
 
   commande.statut = nouveauStatut;
-  commande.historiqueStatuts.push({ statut: nouveauStatut, modifiePar: req.utilisateur.id });
+  commande.historiqueStatuts.push({ statut: nouveauStatut, modifiePar: utilisateur.id });
+
+  // Une commande payée à la livraison est encaissée à la remise du repas.
+  if (nouveauStatut === "livrée" && commande.methodePaiement === "livraison") {
+    commande.statutPaiement = "payé";
+    commande.datePaiement = new Date();
+  }
+
   await commande.save();
   await peuplerCommande(commande);
 
   emettreMiseAJourCommande(commande);
-  res.json({ commande });
+  reponse.json({ commande });
 }
 
 module.exports = {
@@ -197,4 +300,5 @@ module.exports = {
   accepterLivraison,
   obtenirCommande,
   modifierStatut,
+  POPULATE_COMMANDE,
 };

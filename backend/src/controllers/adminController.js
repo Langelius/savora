@@ -6,6 +6,7 @@ const Commande = require("../models/Commande");
 const {
   emettreMiseAJourCommande,
 } = require("../config/socket");
+const { construireRecherche } = require("../utils/texte");
 
 async function obtenirStatistiques(req, res) {
   try {
@@ -124,21 +125,11 @@ async function obtenirUtilisateurs(req, res) {
       filtre.role = role;
     }
 
-    if (recherche.trim()) {
-      filtre.$or = [
-        {
-          nom: {
-            $regex: recherche.trim(),
-            $options: "i",
-          },
-        },
-        {
-          courriel: {
-            $regex: recherche.trim(),
-            $options: "i",
-          },
-        },
-      ];
+    // La saisie est échappée avant d'entrer dans un $regex : sans cela, une
+    // saisie comme « (a+)+$ » provoque un déni de service par ReDoS.
+    const filtreRecherche = construireRecherche(recherche, ["nom", "courriel"]);
+    if (filtreRecherche) {
+      Object.assign(filtre, filtreRecherche);
     }
 
     const utilisateurs = await Utilisateur.find(filtre)
@@ -309,21 +300,9 @@ async function obtenirRestaurants(req, res) {
       filtre.actif = false;
     }
 
-    if (recherche.trim()) {
-      filtre.$or = [
-        {
-          nom: {
-            $regex: recherche.trim(),
-            $options: "i",
-          },
-        },
-        {
-          cuisine: {
-            $regex: recherche.trim(),
-            $options: "i",
-          },
-        },
-      ];
+    const filtreRecherche = construireRecherche(recherche, ["nom", "cuisine"]);
+    if (filtreRecherche) {
+      Object.assign(filtre, filtreRecherche);
     }
 
     const restaurants = await Restaurant.find(

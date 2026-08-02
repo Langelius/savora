@@ -1,15 +1,34 @@
 const express = require("express");
-const routeur = express.Router();
+
 const verifierJeton = require("../middleware/auth");
 const autoriserRoles = require("../middleware/roles");
+const asynchrone = require("../utils/asynchrone");
 const controleur = require("../controllers/commandesController");
+const controleurAvis = require("../controllers/avisController");
 
-routeur.use(verifierJeton);
-routeur.get("/", controleur.listerMesCommandes);
-routeur.get("/disponibles", autoriserRoles("livreur", "admin"), controleur.listerCommandesDisponibles);
-routeur.post("/", autoriserRoles("client"), controleur.creerCommande);
-routeur.patch("/:id/accepter", autoriserRoles("livreur"), controleur.accepterLivraison);
-routeur.get("/:id", controleur.obtenirCommande);
-routeur.patch("/:id/statut", autoriserRoles("restaurant", "livreur", "admin"), controleur.modifierStatut);
+const routeur = express.Router();
+
+routeur.use(asynchrone(verifierJeton));
+
+routeur.get("/", asynchrone(controleur.listerMesCommandes));
+routeur.get(
+  "/disponibles",
+  autoriserRoles("livreur", "admin"),
+  asynchrone(controleur.listerCommandesDisponibles)
+);
+
+routeur.post("/", autoriserRoles("client"), asynchrone(controleur.creerCommande));
+routeur.patch("/:id/accepter", autoriserRoles("livreur"), asynchrone(controleur.accepterLivraison));
+
+routeur.get("/:id", asynchrone(controleur.obtenirCommande));
+routeur.patch(
+  "/:id/statut",
+  autoriserRoles("restaurant", "livreur", "admin"),
+  asynchrone(controleur.modifierStatut)
+);
+
+// Notation du restaurant après livraison (fonctionnalité 4 du cahier des charges).
+routeur.get("/:id/avis", asynchrone(controleurAvis.obtenirAvisCommande));
+routeur.post("/:id/avis", autoriserRoles("client"), asynchrone(controleurAvis.deposerAvis));
 
 module.exports = routeur;
