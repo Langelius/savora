@@ -1,0 +1,125 @@
+<svg viewBox="0 0 1040 820" xmlns="http://www.w3.org/2000/svg" font-family="Arial, Helvetica, sans-serif">
+  <defs>
+    <marker id="crow" markerWidth="14" markerHeight="14" refX="2" refY="6" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M12,1 L1,6 L12,11 M1,6 L12,6" fill="none" stroke="#2E5F8A" stroke-width="1.4"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1040" height="820" fill="#FFFFFF"/>
+
+  <!-- Titre -->
+  <text x="520" y="40" text-anchor="middle" font-size="24" font-weight="bold" fill="#2E5F8A">Schéma de la base de données (MongoDB)</text>
+  <text x="520" y="62" text-anchor="middle" font-size="13" fill="#666666">Collections principales et relations — PK : clé primaire · FK : référence</text>
+
+  <!-- ================= RELATIONS (tracées avant les boîtes) ================= -->
+  <g stroke="#2E5F8A" stroke-width="1.6" fill="none">
+    <!-- utilisateurs (1) -> commandes (N) -->
+    <line x1="295" y1="190" x2="395" y2="360" marker-end="url(#crow)"/>
+    <!-- restaurants (1) -> commandes (N) -->
+    <line x1="745" y1="190" x2="645" y2="360" marker-end="url(#crow)"/>
+    <!-- restaurants (1) -> plats (N) -->
+    <line x1="870" y1="256" x2="870" y2="320" marker-end="url(#crow)"/>
+    <!-- commandes (1) -> avis (N) -->
+    <line x1="520" y1="510" x2="520" y2="580" marker-end="url(#crow)"/>
+    <!-- utilisateurs (1) -> avis (N) : route en équerre à gauche -->
+    <polyline points="170,256 170,690 395,690" marker-end="url(#crow)"/>
+    <!-- restaurants (1) -> avis (N) : route en équerre à droite -->
+    <polyline points="930,256 1010,256 1010,730 645,730" marker-end="url(#crow)"/>
+  </g>
+
+  <!-- Cardinalités -->
+  <g font-size="13" font-weight="bold" fill="#2E5F8A">
+    <text x="285" y="208">1</text><text x="378" y="352">N</text>
+    <text x="752" y="208">1</text><text x="652" y="352">N</text>
+    <text x="878" y="278">1</text><text x="878" y="316">N</text>
+    <text x="528" y="532">1</text><text x="528" y="576">N</text>
+    <text x="150" y="278">1</text><text x="372" y="685">N</text>
+    <text x="938" y="278">1</text><text x="652" y="725">N</text>
+  </g>
+
+  <!-- ================= ENTITÉS ================= -->
+  <!-- helper visual: header bar + rows drawn explicitly -->
+
+  <!-- UTILISATEURS (x=45,y=70,w=250) 6 champs -->
+  <g>
+    <rect x="45" y="70" width="250" height="186" rx="8" fill="#FFFFFF" stroke="#2E5F8A" stroke-width="2"/>
+    <path d="M45,78 a8,8 0 0,1 8,-8 h234 a8,8 0 0,1 8,8 v24 h-250 Z" fill="#2E5F8A"/>
+    <text x="170" y="96" text-anchor="middle" font-size="15" font-weight="bold" fill="#FFFFFF">utilisateurs</text>
+    <g font-size="13" fill="#1a1a1a">
+      <text x="60" y="126"><tspan font-weight="bold" fill="#2E5F8A">PK</tspan>  _id</text>
+      <text x="60" y="150">nom</text>
+      <text x="60" y="174">courriel</text>
+      <text x="60" y="198">motDePasse <tspan fill="#888" font-size="11">(bcrypt)</tspan></text>
+      <text x="60" y="222">adresse</text>
+      <text x="60" y="246">role</text>
+    </g>
+    <line x1="45" y1="132" x2="295" y2="132" stroke="#EEEEEE"/>
+  </g>
+
+  <!-- RESTAURANTS (x=745,y=70,w=250) 6 champs -->
+  <g>
+    <rect x="745" y="70" width="250" height="186" rx="8" fill="#FFFFFF" stroke="#2E5F8A" stroke-width="2"/>
+    <path d="M745,78 a8,8 0 0,1 8,-8 h234 a8,8 0 0,1 8,8 v24 h-250 Z" fill="#2E5F8A"/>
+    <text x="870" y="96" text-anchor="middle" font-size="15" font-weight="bold" fill="#FFFFFF">restaurants</text>
+    <g font-size="13" fill="#1a1a1a">
+      <text x="760" y="126"><tspan font-weight="bold" fill="#2E5F8A">PK</tspan>  _id</text>
+      <text x="760" y="150">nom</text>
+      <text x="760" y="174">adresse</text>
+      <text x="760" y="198">categorie</text>
+      <text x="760" y="222">noteMoyenne</text>
+      <text x="760" y="246">horaires</text>
+    </g>
+    <line x1="745" y1="132" x2="995" y2="132" stroke="#EEEEEE"/>
+  </g>
+
+  <!-- COMMANDES (x=395,y=300,w=250) 7 champs -->
+  <g>
+    <rect x="395" y="300" width="250" height="210" rx="8" fill="#FFFFFF" stroke="#2E5F8A" stroke-width="2"/>
+    <path d="M395,308 a8,8 0 0,1 8,-8 h234 a8,8 0 0,1 8,8 v24 h-250 Z" fill="#2E5F8A"/>
+    <text x="520" y="326" text-anchor="middle" font-size="15" font-weight="bold" fill="#FFFFFF">commandes</text>
+    <g font-size="13" fill="#1a1a1a">
+      <text x="410" y="356"><tspan font-weight="bold" fill="#2E5F8A">PK</tspan>  _id</text>
+      <text x="410" y="380"><tspan font-weight="bold" fill="#C77B25">FK</tspan>  utilisateurId</text>
+      <text x="410" y="404"><tspan font-weight="bold" fill="#C77B25">FK</tspan>  restaurantId</text>
+      <text x="410" y="428">plats[] <tspan fill="#888" font-size="11">(items + options)</tspan></text>
+      <text x="410" y="452">total</text>
+      <text x="410" y="476">statut <tspan fill="#888" font-size="11">(prep/route/livrée)</tspan></text>
+      <text x="410" y="500">dateCommande</text>
+    </g>
+    <line x1="395" y1="362" x2="645" y2="362" stroke="#EEEEEE"/>
+  </g>
+
+  <!-- PLATS (x=745,y=320,w=250) 6 champs -->
+  <g>
+    <rect x="745" y="320" width="250" height="186" rx="8" fill="#FFFFFF" stroke="#2E5F8A" stroke-width="2"/>
+    <path d="M745,328 a8,8 0 0,1 8,-8 h234 a8,8 0 0,1 8,8 v24 h-250 Z" fill="#2E5F8A"/>
+    <text x="870" y="346" text-anchor="middle" font-size="15" font-weight="bold" fill="#FFFFFF">plats</text>
+    <g font-size="13" fill="#1a1a1a">
+      <text x="760" y="376"><tspan font-weight="bold" fill="#2E5F8A">PK</tspan>  _id</text>
+      <text x="760" y="400"><tspan font-weight="bold" fill="#C77B25">FK</tspan>  restaurantId</text>
+      <text x="760" y="424">nom</text>
+      <text x="760" y="448">prix</text>
+      <text x="760" y="472">description</text>
+      <text x="760" y="496">options[]</text>
+    </g>
+    <line x1="745" y1="382" x2="995" y2="382" stroke="#EEEEEE"/>
+  </g>
+
+  <!-- AVIS (x=395,y=580,w=250) 7 champs -->
+  <g>
+    <rect x="395" y="580" width="250" height="210" rx="8" fill="#FFFFFF" stroke="#2E5F8A" stroke-width="2"/>
+    <path d="M395,588 a8,8 0 0,1 8,-8 h234 a8,8 0 0,1 8,8 v24 h-250 Z" fill="#2E5F8A"/>
+    <text x="520" y="606" text-anchor="middle" font-size="15" font-weight="bold" fill="#FFFFFF">avis</text>
+    <g font-size="13" fill="#1a1a1a">
+      <text x="410" y="636"><tspan font-weight="bold" fill="#2E5F8A">PK</tspan>  _id</text>
+      <text x="410" y="660"><tspan font-weight="bold" fill="#C77B25">FK</tspan>  utilisateurId</text>
+      <text x="410" y="684"><tspan font-weight="bold" fill="#C77B25">FK</tspan>  restaurantId</text>
+      <text x="410" y="708"><tspan font-weight="bold" fill="#C77B25">FK</tspan>  commandeId</text>
+      <text x="410" y="732">note <tspan fill="#888" font-size="11">(1 à 5)</tspan></text>
+      <text x="410" y="756">commentaire</text>
+      <text x="410" y="780">date</text>
+    </g>
+    <line x1="395" y1="642" x2="645" y2="642" stroke="#EEEEEE"/>
+  </g>
+
+</svg>
