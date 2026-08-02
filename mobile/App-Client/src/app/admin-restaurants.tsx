@@ -4,16 +4,17 @@ import {
   Alert,
   FlatList,
   Pressable,
-  SafeAreaView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 
 import { api, Restaurant } from "../services/api";
 import { useAuth } from "../context/AuthContext";
+import { palette } from "../constants/design";
 
 export default function AdminRestaurants() {
   const router = useRouter();
