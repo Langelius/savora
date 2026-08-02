@@ -1,3 +1,5 @@
+import { API_URL } from "../constants/config";
+
 export type Utilisateur = {
   id: string;
   nom: string;
@@ -13,10 +15,17 @@ export type Restaurant = {
   cuisine: string;
   description?: string;
   image: string;
+  adresse?: string;
   note: number;
+  nombreAvis?: number;
   delai: string;
   fraisLivraison: number;
   actif?: boolean;
+};
+
+export type OptionPlat = {
+  nom: string;
+  prix: number;
 };
 
 export type Plat = {
@@ -27,12 +36,35 @@ export type Plat = {
   prix: number;
   categorie: string;
   image: string;
+  options?: OptionPlat[];
   populaire?: boolean;
+};
+
+export type Avis = {
+  _id: string;
+  commandeId: string;
+  restaurantId: string;
+  note: number;
+  commentaire: string;
+  createdAt: string;
+  utilisateurId?: { _id: string; nom: string };
+};
+
+// Renvoyée par GET /api/configuration : évite de dupliquer le taux de taxes
+// entre le serveur et l'application.
+export type ConfigurationServeur = {
+  version: string;
+  tauxTaxes: number;
+  devise: string;
+  modePaiement: "stripe" | "simulation";
 };
 
 export type Commande = {
   _id: string;
   statut: string;
+  sousTotal?: number;
+  fraisLivraison?: number;
+  taxes?: number;
   total: number;
   adresseLivraison: string;
   createdAt: string;
@@ -59,6 +91,7 @@ export type Commande = {
     nom: string;
     prix: number;
     quantite: number;
+    options?: string[];
   }>;
 
   historiqueStatuts?: Array<{
@@ -66,8 +99,10 @@ export type Commande = {
     date: string;
   }>;
   methodePaiement?: "carte" | "livraison";
+  fournisseurPaiement?: "stripe" | "simulation" | "comptant";
   statutPaiement?: "en attente" | "payé" | "à payer" | "échoué" | "remboursé";
   referencePaiement?: string | null;
+  avisDepose?: boolean;
 };
 
 export type MessageDiscussion = {
@@ -123,12 +158,6 @@ export type UtilisateurAdmin = {
     actif: boolean;
   } | null;
 };
-
-const API_URL =
-  process.env.EXPO_PUBLIC_API_URL ??
-  "http://192.168.2.15:3000/api";
-
-console.log("API Savora utilisée :", API_URL);
 
 async function requete<T>(
   chemin: string,
@@ -201,6 +230,9 @@ async function requete<T>(
 }
 
 export const api = {
+  // Configuration publique du serveur (taux de taxes, mode de paiement).
+  configuration: () => requete<ConfigurationServeur>("/configuration"),
+
   inscription: (corps: {
     nom: string;
     courriel: string;
@@ -257,6 +289,7 @@ export const api = {
       plats: Array<{
         platId: string;
         quantite: number;
+        options?: string[];
       }>;
       adresseLivraison: string;
       methodePaiement: string;
@@ -340,6 +373,29 @@ export const api = {
       {
         method: "POST",
         body: JSON.stringify({ texte }),
+      },
+      token
+    ),
+
+  // ── Notation des restaurants ────────────────────────────────────────────
+  avisRestaurant: (id: string) =>
+    requete<{
+      restaurant: { _id: string; nom: string; note: number; nombreAvis: number };
+      avis: Avis[];
+    }>(`/restaurants/${id}/avis`),
+
+  avisCommande: (token: string, id: string) =>
+    requete<{ avis: Avis | null }>(`/commandes/${id}/avis`, {}, token),
+
+  deposerAvis: (token: string, id: string, note: number, commentaire: string) =>
+    requete<{
+      avis: Avis;
+      restaurant: { note: number; nombreAvis: number };
+    }>(
+      `/commandes/${id}/avis`,
+      {
+        method: "POST",
+        body: JSON.stringify({ note, commentaire }),
       },
       token
     ),

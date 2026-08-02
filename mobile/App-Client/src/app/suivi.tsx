@@ -14,6 +14,7 @@ import { io, Socket } from "socket.io-client";
 import { api, Commande } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 import { palette } from "../constants/design";
+import { SOCKET_URL } from "../constants/config";
 
 const ETAPES = [
   "en attente",
@@ -24,13 +25,6 @@ const ETAPES = [
   "en route",
   "livrée",
 ];
-
-const SOCKET_URL =
-  process.env.EXPO_PUBLIC_SOCKET_URL ??
-  (
-    process.env.EXPO_PUBLIC_API_URL ??
-    "http://localhost:3000/api"
-  ).replace(/\/api\/?$/, "");
 
 const DUREE_LIVRAISON_ESTIMEE = 25;
 
@@ -346,6 +340,25 @@ export default function Suivi() {
           </Text>
         </View>
 
+        {/* La notation n'apparaît qu'une fois le repas livré, et une seule
+            fois par commande : c'est aussi la règle appliquée par l'API. */}
+        {commande.statut === "livrée" && (
+          <Pressable
+            onPress={() =>
+              router.push(
+                `/avis?id=${commande._id}&restaurant=${encodeURIComponent(
+                  commande.restaurantId?.nom ?? "Restaurant"
+                )}` as never
+              )
+            }
+            style={styles.boutonNoter}
+          >
+            <Text style={styles.boutonNoterTexte}>
+              {commande.avisDepose ? "Voir mon avis" : "★  Noter le restaurant"}
+            </Text>
+          </Pressable>
+        )}
+
         <Pressable
           onPress={() => router.push(`/discussion?id=${commande._id}` as never)}
           style={styles.boutonSecondaire}
@@ -369,6 +382,20 @@ export default function Suivi() {
 }
 
 const styles = StyleSheet.create({
+  boutonNoter: {
+    marginTop: 16,
+    backgroundColor: palette.or,
+    borderRadius: 18,
+    paddingVertical: 16,
+    alignItems: "center",
+  },
+
+  boutonNoterTexte: {
+    color: palette.noir,
+    fontWeight: "900",
+    fontSize: 16,
+  },
+
   safe: {
     flex: 1,
     backgroundColor: palette.fond,
