@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -14,16 +13,15 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 
 import { palette } from "../constants/design";
 
-// react-native-maps n'a aucun point d'entrée web : l'importer statiquement
-// ferait échouer TOUTE l'application dans le navigateur, car Expo Router
-// charge chaque fichier de route pour construire son arborescence de routes.
-// Le module n'est donc chargé que sur les plateformes natives.
-const cartographie =
-  Platform.OS === "web" ? null : require("react-native-maps");
-
-const MapView = cartographie?.default;
-const Marker = cartographie?.Marker;
-const Polyline = cartographie?.Polyline;
+// Version native de l'écran de carte.
+//
+// react-native-maps importe des modules internes de React Native qui
+// n'existent pas dans un navigateur. Un import conditionnel ne suffit pas :
+// Metro analyse les require() à la compilation et inclut le module quand
+// même. La séparation se fait donc par extension de fichier — Metro résout
+// « carte-livraison.web.tsx » en priorité sur le web, et ce fichier-ci n'y
+// est jamais inclus.
+import MapView, { Marker, Polyline } from "react-native-maps";
 
 type Coordonnees = {
   latitude: number;
@@ -115,36 +113,6 @@ export default function CarteLivraison() {
     };
   }, []);
 
-  // Sur le web, la carte n'est pas disponible : on l'annonce clairement
-  // plutôt que d'afficher un écran vide ou de faire planter la page.
-  if (Platform.OS === "web") {
-    return (
-      <SafeAreaView style={styles.safe}>
-        <View style={styles.entete}>
-          <Pressable onPress={() => router.back()} style={styles.retour}>
-            <Text style={styles.retourTexte}>← Retour</Text>
-          </Pressable>
-
-          <View style={styles.enteteTexte}>
-            <Text style={styles.titre}>Carte de livraison</Text>
-            <Text style={styles.doux}>
-              {restaurant ?? "Restaurant"} → {adresse ?? "Client"}
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.centre}>
-          <Text style={styles.emoji}>🗺️</Text>
-          <Text style={styles.titre}>Carte indisponible sur le web</Text>
-          <Text style={styles.doux}>
-            L'affichage cartographique nécessite l'application mobile. Ouvre
-            Savora sur ton téléphone pour suivre le trajet du livreur.
-          </Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   if (chargement || !positionLivreur) {
     return (
       <SafeAreaView style={styles.centre}>
@@ -223,7 +191,6 @@ export default function CarteLivraison() {
 }
 
 const styles = StyleSheet.create({
-  emoji: { fontSize: 52, marginBottom: 12 },
   safe: {
     flex: 1,
     backgroundColor: palette.fond,
