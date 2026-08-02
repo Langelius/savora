@@ -58,13 +58,36 @@ que le code.
 | 5 | Jeton conservé dans le trousseau système via expo-secure-store, session restaurée au lancement | `mobile/App-Client/src/services/stockage.ts` |
 | 6 | Reprise complète de `/docs` sur l'état réel du code, avec ADR rétroactifs | ce dossier |
 
+## 5 bis. Difficultés de la dernière itération
+
+7. **Aucun moyen d'ajouter un restaurant.** Le catalogue n'existait que dans le
+   script de démarrage, qui effaçait tout avant de recharger. L'administration
+   pouvait lister, désactiver et supprimer un établissement, mais pas en créer.
+   Ajouter un quatrième restaurant imposait d'éditer le script et de perdre les
+   trois autres, ainsi que toutes les notes.
+8. **Notifications impossibles dans Expo Go.** Depuis le SDK 53, les push
+   distantes ne fonctionnent plus sur Android sans *development build* —
+   exactement le mur déjà rencontré avec le SDK Stripe.
+
+## 6 bis. Solutions de la dernière itération
+
+| Difficulté | Solution | Trace |
+|------------|----------|-------|
+| 7 | Contrôleur unique de gestion des menus, partagé par l'administration et les gestionnaires de restaurant, avec cloisonnement vérifié à chaque appel. Seed rendu non destructif. | `services/validationMenu.js`, `controllers/menuController.js` |
+| 8 | Double canal : push distantes côté serveur, notification locale déclenchée par Socket.IO côté application | [ADR 0006](../decisions/0006-notifications-double-canal.md) |
+
 ## 7. Résultats obtenus
 
 - Les quatre fonctionnalités imposées sont opérationnelles.
 - Le parcours complet fonctionne de bout en bout sur téléphone, avec quatre
   rôles et mise à jour en temps réel.
-- 16 tests unitaires automatisés, vérification des types côté mobile,
+- 30 tests unitaires automatisés, vérification des types côté mobile,
   intégration continue sur chaque Pull Request.
+- Catalogue gérable depuis l'application : un administrateur crée un
+  établissement et son gestionnaire, qui gère ensuite son propre menu.
+- Notifications à chaque étape de la commande, sur deux canaux complémentaires.
+- Backend prêt à déployer : configurations Render et Railway versionnées,
+  arrêt propre sur SIGTERM, CORS de production appliqué à l'API et au socket.
 - Corrections de sécurité : limitation de débit, en-têtes HTTP, CORS restreint,
   échappement des expressions régulières, rechargement du rôle à chaque requête.
 - Documentation technique alignée sur le code livré.
@@ -76,5 +99,6 @@ que le code.
 - Position du livreur diffusée en continu par Socket.IO plutôt que positions
   fixes sur la carte.
 - Limitation de débit partagée via Redis pour un déploiement multi-instances.
-- Notifications poussées, pourboires, modération des avis.
-- Déploiement du backend sur Render ou Railway.
+- Pourboires et modération des avis.
+- Notifications distantes réellement démontrables, via un *development build*.
+- Auto-suppression du compte par l'utilisateur (droit à l'effacement).

@@ -13,13 +13,14 @@ dans le cadre du cours de documentation technique à l'Institut Teccart.
 | Rôle | Ce qu'il peut faire |
 |------|---------------------|
 | **Client** | Parcourir les restaurants, personnaliser ses plats, payer, suivre la livraison en direct, discuter, noter le restaurant |
-| **Restaurant** | Recevoir les commandes en temps réel et faire évoluer leur statut jusqu'à « prête » |
+| **Restaurant** | Recevoir les commandes en temps réel, faire évoluer leur statut, **gérer son menu et ses options** |
 | **Livreur** | Voir les livraisons disponibles, en accepter une (attribution atomique), suivre le trajet sur carte |
-| **Administrateur** | Statistiques de la plateforme, gestion des utilisateurs, des restaurants et des commandes |
+| **Administrateur** | Statistiques, gestion des utilisateurs et des commandes, **création de restaurants et de leurs menus** |
 
 Les quatre fonctionnalités imposées par le cahier des charges sont couvertes :
 menu interactif avec personnalisation, suivi en temps réel, paiement intégré,
-notation des restaurants.
+notation des restaurants. S'y ajoutent la discussion par commande, les
+notifications à chaque étape et la gestion du catalogue depuis l'application.
 
 ## Architecture
 
@@ -29,10 +30,13 @@ Expo / React Native (TypeScript)
         ▼                       ▼
    Node.js + Express  ──────────────────►  MongoDB (Mongoose)
         ├── Stripe (mode test, ou simulation hors ligne)
+        ├── Expo Push (notifications, avec repli local)
         └── expo-location + react-native-maps (côté mobile)
 ```
 
 Détails : [docs/architecture.md](./docs/architecture.md).
+Déploiement : [docs/exploitation/deploiement.md](./docs/exploitation/deploiement.md)
+(Render ou Railway, configurations versionnées).
 
 ## Démarrage rapide
 
@@ -52,11 +56,12 @@ npx expo start --clear
 ```
 
 Procédure complète : [docs/installation.md](./docs/installation.md).
+Procédure de test : [docs/exploitation/guide-de-test.md](./docs/exploitation/guide-de-test.md).
 
 ## Vérifications
 
 ```bash
-cd backend && npm test                  # tests unitaires (node:test)
+cd backend && npm test                  # 30 tests unitaires (node:test)
 cd mobile/App-Client && npm run typecheck
 ```
 
