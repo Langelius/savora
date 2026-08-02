@@ -60,9 +60,10 @@ API Savora 3.0.0 et Socket.IO démarrés
 # Administrateur
 COURRIEL_ADMIN=admin@savora.ca MOT_DE_PASSE_ADMIN=Savora123! npm run creer-admin
 
-# Gestionnaire de restaurant (récupérer l'ID via GET /api/restaurants)
+# Gestionnaire de restaurant — le restaurant est désigné par son NOM exact
+# (voir GET /api/restaurants), pas par son identifiant.
 COURRIEL_RESTAURANT=resto@savora.ca MOT_DE_PASSE_RESTAURANT=Savora123! \
-RESTAURANT_ID=<id> npm run creer-compte-restaurant
+NOM_RESTAURANT="Nami Sushi" npm run creer-compte-restaurant
 
 # Livreur
 COURRIEL_LIVREUR=livreur@savora.ca MOT_DE_PASSE_LIVREUR=Savora123! npm run creer-compte-livreur
