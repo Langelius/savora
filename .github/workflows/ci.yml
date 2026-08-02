@@ -2,13 +2,13 @@ name: CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main, develop ]
+    branches: [main, develop]
 
 jobs:
   backend:
-    name: Backend (Node.js)
+    name: Backend — tests unitaires
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -18,5 +18,25 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - run: npm install
-      - run: npm test --if-present
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      # npm ci installe exactement les versions du lockfile : le résultat de
+      # la CI est reproductible, contrairement à npm install.
+      - run: npm ci
+      - run: npm test
+
+  mobile:
+    name: Mobile — vérification des types
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile/App-Client
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: mobile/App-Client/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck

@@ -46,3 +46,22 @@
 - [ ] La note moyenne du restaurant est recalculée.
 
 **Priorité (MoSCoW) :** Must
+
+---
+
+## US-04 — Noter le restaurant après livraison
+
+> En tant que **client**, je veux noter le restaurant après réception de ma
+> commande, afin de partager mon expérience avec les autres clients.
+
+**Critères d'acceptation**
+
+- Le bouton « Noter le restaurant » n'apparaît qu'une fois la commande au
+  statut « livrée ».
+- La note est un entier de 1 à 5 ; le commentaire est facultatif (600
+  caractères maximum).
+- Une commande ne peut être notée qu'une seule fois. Une seconde tentative
+  affiche l'avis existant en lecture seule.
+- La note moyenne du restaurant et le nombre d'avis sont recalculés et visibles
+  immédiatement sur sa fiche.
+- Un client ne peut pas noter la commande d'un autre client (403).
