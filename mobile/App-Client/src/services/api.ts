@@ -1,0 +1,542 @@
+export type Utilisateur = {
+  id: string;
+  nom: string;
+  courriel: string;
+  role: string;
+  telephone?: string;
+  restaurantId?: string | null;
+};
+
+export type Restaurant = {
+  _id: string;
+  nom: string;
+  cuisine: string;
+  description?: string;
+  image: string;
+  note: number;
+  delai: string;
+  fraisLivraison: number;
+  actif?: boolean;
+};
+
+export type Plat = {
+  _id: string;
+  restaurantId: string;
+  nom: string;
+  description: string;
+  prix: number;
+  categorie: string;
+  image: string;
+  populaire?: boolean;
+};
+
+export type Commande = {
+  _id: string;
+  statut: string;
+  total: number;
+  adresseLivraison: string;
+  createdAt: string;
+  updatedAt?: string;
+
+  restaurantId: Restaurant;
+
+  utilisateurId?: {
+    _id: string;
+    nom: string;
+    courriel?: string;
+    telephone?: string;
+  };
+
+  livreurId?: {
+    _id: string;
+    nom: string;
+    courriel?: string;
+    telephone?: string;
+  } | null;
+
+  plats: Array<{
+    platId: string;
+    nom: string;
+    prix: number;
+    quantite: number;
+  }>;
+
+  historiqueStatuts?: Array<{
+    statut: string;
+    date: string;
+  }>;
+  methodePaiement?: "carte" | "livraison";
+  statutPaiement?: "en attente" | "payé" | "à payer" | "échoué" | "remboursé";
+  referencePaiement?: string | null;
+};
+
+export type MessageDiscussion = {
+  _id: string;
+  commandeId: string;
+  texte: string;
+  createdAt: string;
+  auteurId: {
+    _id: string;
+    nom: string;
+    role: string;
+  };
+};
+
+export type StatistiquesAdmin = {
+  utilisateurs: {
+    total: number;
+    clients: number;
+    livreurs: number;
+    administrateurs: number;
+  };
+
+  restaurants: {
+    total: number;
+    actifs: number;
+    inactifs: number;
+  };
+
+  commandes: {
+    total: number;
+    enAttente: number;
+    enPreparation: number;
+    enRoute: number;
+    livrees: number;
+    annulees: number;
+  };
+
+  revenusTotaux: number;
+};
+
+export type UtilisateurAdmin = {
+  _id: string;
+  nom: string;
+  courriel: string;
+  role: "client" | "restaurant" | "livreur" | "admin";
+  telephone?: string;
+  createdAt?: string;
+
+  restaurantId?: {
+    _id: string;
+    nom: string;
+    cuisine: string;
+    actif: boolean;
+  } | null;
+};
+
+const API_URL =
+  process.env.EXPO_PUBLIC_API_URL ??
+  "http://192.168.2.15:3000/api";
+
+console.log("API Savora utilisée :", API_URL);
+
+async function requete<T>(
+  chemin: string,
+  options: RequestInit = {},
+  token?: string
+): Promise<T> {
+  const controleur = new AbortController();
+
+  const timeout = setTimeout(() => {
+    controleur.abort();
+  }, 12000);
+
+  try {
+    const reponse = await fetch(`${API_URL}${chemin}`, {
+      ...options,
+      signal: controleur.signal,
+      headers: {
+        "Content-Type": "application/json",
+
+        ...(token
+          ? {
+              Authorization: `Bearer ${token}`,
+            }
+          : {}),
+
+        ...(options.headers ?? {}),
+      },
+    });
+
+    const texte = await reponse.text();
+
+    let donnees: any = {};
+
+    try {
+      donnees = texte ? JSON.parse(texte) : {};
+    } catch {
+      donnees = {
+        message: texte || "Réponse invalide du serveur.",
+      };
+    }
+
+    if (!reponse.ok) {
+      throw new Error(
+        donnees.message ??
+          `Erreur HTTP ${reponse.status}`
+      );
+    }
+
+    return donnees as T;
+  } catch (erreur) {
+    if (
+      erreur instanceof Error &&
+      erreur.name === "AbortError"
+    ) {
+      throw new Error(
+        `Le serveur ne répond pas à ${API_URL}. Vérifie que le backend est démarré, que le téléphone et le PC sont sur le même Wi-Fi et que le port 3000 est autorisé dans le pare-feu.`
+      );
+    }
+
+    if (erreur instanceof TypeError) {
+      throw new Error(
+        `Connexion impossible à ${API_URL}. Vérifie le Wi-Fi, le pare-feu Windows et redémarre Expo avec npx expo start --clear.`
+      );
+    }
+
+    throw erreur;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+export const api = {
+  inscription: (corps: {
+    nom: string;
+    courriel: string;
+    motDePasse: string;
+  }) =>
+    requete<{
+      token: string;
+      utilisateur: Utilisateur;
+    }>("/auth/inscription", {
+      method: "POST",
+      body: JSON.stringify(corps),
+    }),
+
+  connexion: (corps: {
+    courriel: string;
+    motDePasse: string;
+  }) =>
+    requete<{
+      token: string;
+      utilisateur: Utilisateur;
+    }>("/auth/connexion", {
+      method: "POST",
+      body: JSON.stringify(corps),
+    }),
+
+  profil: (token: string) =>
+    requete<{
+      utilisateur: Utilisateur;
+    }>("/auth/profil", {}, token),
+
+  restaurants: (recherche = "") =>
+    requete<{
+      restaurants: Restaurant[];
+    }>(
+      `/restaurants${
+        recherche
+          ? `?recherche=${encodeURIComponent(
+              recherche
+            )}`
+          : ""
+      }`
+    ),
+
+  restaurant: (id: string) =>
+    requete<{
+      restaurant: Restaurant;
+      plats: Plat[];
+    }>(`/restaurants/${id}`),
+
+  creerCommande: (
+    token: string,
+    corps: {
+      restaurantId: string;
+      plats: Array<{
+        platId: string;
+        quantite: number;
+      }>;
+      adresseLivraison: string;
+      methodePaiement: string;
+      paiement?: {
+        titulaire: string;
+        numero: string;
+        expiration: string;
+        cvv: string;
+      };
+    }
+  ) =>
+    requete<{
+      commande: Commande;
+    }>(
+      "/commandes",
+      {
+        method: "POST",
+        body: JSON.stringify(corps),
+      },
+      token
+    ),
+
+  commandes: (token: string) =>
+    requete<{
+      commandes: Commande[];
+    }>("/commandes", {}, token),
+
+  commande: (token: string, id: string) =>
+    requete<{
+      commande: Commande;
+    }>(`/commandes/${id}`, {}, token),
+
+  commandesDisponibles: (token: string) =>
+    requete<{
+      commandes: Commande[];
+    }>("/commandes/disponibles", {}, token),
+
+  accepterLivraison: (
+    token: string,
+    id: string
+  ) =>
+    requete<{
+      commande: Commande;
+    }>(
+      `/commandes/${id}/accepter`,
+      {
+        method: "PATCH",
+      },
+      token
+    ),
+
+  modifierStatutCommande: (
+    token: string,
+    id: string,
+    statut: string
+  ) =>
+    requete<{
+      commande: Commande;
+    }>(
+      `/commandes/${id}/statut`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({
+          statut,
+        }),
+      },
+      token
+    ),
+
+
+  messagesCommande: (token: string, id: string) =>
+    requete<{ messages: MessageDiscussion[] }>(
+      `/commandes/${id}/messages`,
+      {},
+      token
+    ),
+
+  envoyerMessageCommande: (token: string, id: string, texte: string) =>
+    requete<{ message: MessageDiscussion }>(
+      `/commandes/${id}/messages`,
+      {
+        method: "POST",
+        body: JSON.stringify({ texte }),
+      },
+      token
+    ),
+
+  statistiquesAdmin: (token: string) =>
+    requete<{
+      statistiques: StatistiquesAdmin;
+    }>("/admin/statistiques", {}, token),
+
+  utilisateursAdmin: (
+    token: string,
+    role = "",
+    recherche = ""
+  ) => {
+    const parametres: string[] = [];
+
+    if (role) {
+      parametres.push(
+        `role=${encodeURIComponent(role)}`
+      );
+    }
+
+    if (recherche) {
+      parametres.push(
+        `recherche=${encodeURIComponent(
+          recherche
+        )}`
+      );
+    }
+
+    const chemin =
+      parametres.length > 0
+        ? `/admin/utilisateurs?${parametres.join(
+            "&"
+          )}`
+        : "/admin/utilisateurs";
+
+    return requete<{
+      utilisateurs: UtilisateurAdmin[];
+    }>(chemin, {}, token);
+  },
+
+  modifierRoleUtilisateurAdmin: (
+    token: string,
+    id: string,
+    role:
+      | "client"
+      | "restaurant"
+      | "livreur"
+      | "admin"
+  ) =>
+    requete<{
+      message: string;
+      utilisateur: UtilisateurAdmin;
+    }>(
+      `/admin/utilisateurs/${id}/role`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({
+          role,
+        }),
+      },
+      token
+    ),
+
+  supprimerUtilisateurAdmin: (
+    token: string,
+    id: string
+  ) =>
+    requete<{
+      message: string;
+    }>(
+      `/admin/utilisateurs/${id}`,
+      {
+        method: "DELETE",
+      },
+      token
+    ),
+
+  restaurantsAdmin: (
+    token: string,
+    actif?: boolean,
+    recherche = ""
+  ) => {
+    const parametres: string[] = [];
+
+    if (typeof actif === "boolean") {
+      parametres.push(`actif=${actif}`);
+    }
+
+    if (recherche) {
+      parametres.push(
+        `recherche=${encodeURIComponent(
+          recherche
+        )}`
+      );
+    }
+
+    const chemin =
+      parametres.length > 0
+        ? `/admin/restaurants?${parametres.join(
+            "&"
+          )}`
+        : "/admin/restaurants";
+
+    return requete<{
+      restaurants: Restaurant[];
+    }>(chemin, {}, token);
+  },
+
+  modifierEtatRestaurantAdmin: (
+    token: string,
+    id: string,
+    actif: boolean
+  ) =>
+    requete<{
+      message: string;
+      restaurant: Restaurant;
+    }>(
+      `/admin/restaurants/${id}/actif`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({
+          actif,
+        }),
+      },
+      token
+    ),
+
+  supprimerRestaurantAdmin: (
+    token: string,
+    id: string
+  ) =>
+    requete<{
+      message: string;
+    }>(
+      `/admin/restaurants/${id}`,
+      {
+        method: "DELETE",
+      },
+      token
+    ),
+
+  commandesAdmin: (
+    token: string,
+    statut = "",
+    restaurantId = "",
+    livreurId = ""
+  ) => {
+    const parametres: string[] = [];
+
+    if (statut) {
+      parametres.push(
+        `statut=${encodeURIComponent(statut)}`
+      );
+    }
+
+    if (restaurantId) {
+      parametres.push(
+        `restaurantId=${encodeURIComponent(
+          restaurantId
+        )}`
+      );
+    }
+
+    if (livreurId) {
+      parametres.push(
+        `livreurId=${encodeURIComponent(
+          livreurId
+        )}`
+      );
+    }
+
+    const chemin =
+      parametres.length > 0
+        ? `/admin/commandes?${parametres.join(
+            "&"
+          )}`
+        : "/admin/commandes";
+
+    return requete<{
+      commandes: Commande[];
+    }>(chemin, {}, token);
+  },
+
+  annulerCommandeAdmin: (
+    token: string,
+    id: string
+  ) =>
+    requete<{
+      message: string;
+      commande: Commande;
+    }>(
+      `/admin/commandes/${id}/annuler`,
+      {
+        method: "PATCH",
+      },
+      token
+    ),
+};
