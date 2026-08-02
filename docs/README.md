@@ -16,6 +16,7 @@ code qu'elle décrit.
 | [user-stories/](./user-stories/) | User stories et critères d'acceptation |
 | [sprints/sprint-plan.md](./sprints/sprint-plan.md) | Organisation Scrum et découpage des sprints |
 | [tests/strategie-de-test.md](./tests/strategie-de-test.md) | Stratégie et couverture de test |
+| [exploitation/guide-de-test.md](./exploitation/guide-de-test.md) | **Procédure complète de test du projet** |
 | [exploitation/](./exploitation/) | Notes d'exploitation rédigées au fil des étapes |
 | [rapport/README.md](./rapport/README.md) | Rapport de projet |
 | [diagrammes/](./diagrammes/) | Diagrammes source (SVG) |
