@@ -6,8 +6,7 @@ import { Entete } from "../components/Entete";
 import { api, MessageDiscussion } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 import { palette } from "../constants/design";
-
-const SOCKET_URL = process.env.EXPO_PUBLIC_SOCKET_URL ?? "http://192.168.2.15:3000";
+import { SOCKET_URL } from "../constants/config";
 
 export default function Discussion() {
   const { id } = useLocalSearchParams<{ id?: string }>();
