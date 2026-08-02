@@ -1,0 +1,1 @@
+const express=require("express");const routeur=express.Router();const c=require("../controllers/restaurantsController");routeur.get("/",c.listerRestaurants);routeur.get("/:id",c.obtenirRestaurant);module.exports=routeur;
