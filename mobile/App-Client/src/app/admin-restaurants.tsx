@@ -174,6 +174,13 @@ export default function AdminRestaurants() {
           </View>
         </View>
 
+        <Pressable
+          onPress={() => router.push("/admin-restaurant-nouveau" as never)}
+          style={styles.boutonNouveau}
+        >
+          <Text style={styles.boutonNouveauTexte}>+  Nouveau restaurant</Text>
+        </Pressable>
+
         <TextInput
           value={recherche}
           onChangeText={setRecherche}
@@ -264,6 +271,15 @@ export default function AdminRestaurants() {
                 </View>
 
                 <View style={styles.actions}>
+                  <Pressable
+                    onPress={() =>
+                      router.push(`/restaurant-menu?restaurantId=${item._id}` as never)
+                    }
+                    style={styles.boutonMenu}
+                  >
+                    <Text style={styles.boutonEtatTexte}>Menu</Text>
+                  </Pressable>
+
                   <Pressable
                     onPress={() => modifierEtat(item)}
                     style={[
@@ -456,6 +472,24 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     borderRadius: 12,
     marginBottom: 8,
+  },
+
+  boutonNouveau: {
+    backgroundColor: palette.orange,
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: "center",
+    marginBottom: 14,
+  },
+
+  boutonNouveauTexte: { color: palette.blanc, fontWeight: "900", fontSize: 15 },
+
+  boutonMenu: {
+    paddingHorizontal: 13,
+    paddingVertical: 9,
+    borderRadius: 12,
+    marginBottom: 8,
+    backgroundColor: palette.orange,
   },
 
   boutonActiver: {
