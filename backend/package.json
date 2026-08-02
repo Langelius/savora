@@ -10,7 +10,8 @@
     "seed": "node src/scripts/seed.js",
     "creer-compte-restaurant": "node src/scripts/creerCompteRestaurant.js",
     "creer-compte-livreur": "node src/scripts/creerCompteLivreur.js",
-    "creer-admin": "node src/scripts/creerAdmin.js"
+    "creer-admin": "node src/scripts/creerAdmin.js",
+    "seed:reinitialiser": "node src/scripts/seed.js --reinitialiser"
   },
   "dependencies": {
     "express": "^4.19.2",

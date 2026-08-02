@@ -115,26 +115,50 @@ const donnees = [
   },
 ];
 
+// Par défaut, le seed est NON destructif : il crée ce qui manque et met à jour
+// ce qui existe, en identifiant les enregistrements par leur nom. Les
+// restaurants ajoutés depuis l'application ne sont donc jamais effacés.
+//
+// Pour repartir d'une base propre : npm run seed -- --reinitialiser
+const REINITIALISER = process.argv.includes("--reinitialiser");
+
 async function remplirBase() {
   await connecterBaseDeDonnees();
 
-  // La note et le nombre d'avis repartent de zéro : ils sont désormais
-  // calculés à partir des avis réels et non fixés à la main.
-  await Promise.all([Restaurant.deleteMany({}), Plat.deleteMany({})]);
-
-  for (const bloc of donnees) {
-    const restaurant = await Restaurant.create(bloc.restaurant);
-
-    const plats = [];
-    for (const plat of bloc.plats) {
-      plats.push({ ...plat, restaurantId: restaurant._id });
-    }
-    await Plat.insertMany(plats);
-
-    console.log(`  ${restaurant.nom} : ${plats.length} plats`);
+  if (REINITIALISER) {
+    console.log("Mode réinitialisation : suppression du catalogue existant.");
+    await Promise.all([Restaurant.deleteMany({}), Plat.deleteMany({})]);
   }
 
-  console.log("Catalogue Savora rechargé.");
+  for (const bloc of donnees) {
+    // La note et le nombre d'avis ne sont jamais écrits ici : ils sont
+    // calculés à partir des avis réels. Un seed ne doit pas les écraser.
+    const restaurant = await Restaurant.findOneAndUpdate(
+      { nom: bloc.restaurant.nom },
+      { $set: bloc.restaurant },
+      { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
+    );
+
+    let ajoutes = 0;
+    for (const plat of bloc.plats) {
+      await Plat.findOneAndUpdate(
+        { restaurantId: restaurant._id, nom: plat.nom },
+        { $set: { ...plat, restaurantId: restaurant._id } },
+        { upsert: true, runValidators: true, setDefaultsOnInsert: true }
+      );
+      ajoutes += 1;
+    }
+
+    console.log(`  ${restaurant.nom} : ${ajoutes} plats à jour`);
+  }
+
+  const total = await Restaurant.countDocuments();
+  console.log(
+    REINITIALISER
+      ? "Catalogue Savora réinitialisé."
+      : `Catalogue Savora à jour. ${total} restaurants en base (les autres sont conservés).`
+  );
+
   await mongoose.disconnect();
 }
 
