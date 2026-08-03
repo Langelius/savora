@@ -94,6 +94,56 @@ et n'existent qu'à un seul endroit.
    (`POST /api/commandes/:id/avis`). La note moyenne est recalculée par
    agrégation MongoDB.
 
+## Attribution des livraisons
+
+L'attribution est **volontaire, pas automatique** : aucun algorithme n'affecte
+un livreur à une commande. C'est un modèle *pull* — le livreur choisit.
+
+### Quand la course est proposée
+
+Une commande n'est **jamais** proposée aux livreurs au moment où elle est
+passée. Elle ne le devient qu'au statut `prête`, posé par le restaurant :
+inutile d'envoyer quelqu'un chercher un repas qui n'est pas prêt.
+
+```
+Client paie
+  └─► en attente                    les livreurs ne voient rien
+Restaurant : confirmée
+             en préparation
+             prête ─────────────►   « commande:disponible »
+                                    diffusé à TOUS les livreurs connectés
+Premier livreur qui accepte ────►   « commande:attribuee »
+                                    la course disparaît des autres écrans
+```
+
+### Comment deux livreurs simultanés sont départagés
+
+```js
+Commande.findOneAndUpdate(
+  { _id: id, statut: "prête", livreurId: null },   // le filtre est la garantie
+  { $set: { livreurId: moi, statut: "prise en charge" } }
+);
+```
+
+MongoDB garantit qu'une modification de document est atomique. Le premier
+livreur passe. Le second arrive quelques millisecondes plus tard : `livreurId`
+n'est plus `null`, **le filtre ne correspond plus**, `findOneAndUpdate` renvoie
+`null`, et le contrôleur répond **409**.
+
+Il n'y a ni verrou, ni transaction, et c'est précisément ce qui rend la chose
+correcte. Un `findById` suivi d'un `save()` aurait laissé une fenêtre où les
+deux livreurs lisent `livreurId: null` puis s'écrasent mutuellement.
+
+### Limites assumées de ce modèle
+
+Ce sont des choix de périmètre, pas des oublis :
+
+| Limite | Conséquence | Piste |
+|--------|-------------|-------|
+| Aucune notion de **proximité** | Un livreur à l'autre bout de la ville voit la même course que celui devant le restaurant | Filtrer par distance à partir de la position du livreur |
+| Aucune **réattribution** | Si personne n'accepte, la commande reste `prête` indéfiniment — pas de file d'attente, pas de relance | Délai d'expiration puis escalade |
+| Un livreur ne peut pas **se désister** | Seul un administrateur peut annuler la commande | Route de désistement remettant `livreurId` à `null` |
+
 ## Temps réel : organisation des salons
 
 À la connexion, le socket est authentifié par le même jeton JWT que l'API,
@@ -189,6 +239,8 @@ Détail des choix : [ADR 0004](./decisions/0004-paiement-stripe-ou-simulation.md
   livreur ; les positions du restaurant et du client sont encore fixes.
 - La limitation de débit est en mémoire de processus : elle ne se partage pas
   entre plusieurs instances du serveur.
+- L'attribution des livraisons ignore la proximité, ne se réattribue pas et
+  n'autorise pas le désistement (voir « Attribution des livraisons »).
 - Aucun test d'intégration automatisé sur les routes ; les tests couvrent les
   services métier et les utilitaires de sécurité.
 - Les notifications distantes exigent un *development build* : elles ne sont

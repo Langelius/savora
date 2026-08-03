@@ -28,6 +28,15 @@
 - Après acceptation, je peux passer « en route » puis « livrée ».
 - Le client et le restaurant voient chaque changement en direct.
 
+**Hors périmètre, assumé**
+
+- Les courses ne sont pas filtrées par proximité : tous les livreurs voient
+  toutes les commandes prêtes.
+- Si personne n'accepte, la commande reste disponible indéfiniment ; aucune
+  relance ni réattribution automatique.
+- Un livreur ne peut pas se désister après acceptation ; seul un
+  administrateur peut annuler la commande.
+
 ## US-07 — Discuter au sujet d'une commande
 
 > En tant que **client**, je veux échanger avec le restaurant ou le livreur au

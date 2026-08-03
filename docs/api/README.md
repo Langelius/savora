@@ -170,7 +170,13 @@ et aux administrateurs. **403** sinon.
 
 ### PATCH /commandes/:id/accepter — rôle `livreur`
 Attribution **atomique** : si deux livreurs appuient au même instant, un seul
-obtient la commande.
+obtient la commande. Le filtre `{ statut: "prête", livreurId: null }` fait office
+de garantie — le second appel ne correspond plus et reçoit un 409.
+
+> **Modèle *pull*.** Aucun algorithme n'affecte de livreur : la course est
+> proposée à tous ceux qui sont connectés, le premier qui accepte l'obtient.
+> Il n'y a ni filtrage par proximité, ni réattribution si personne n'accepte,
+> ni possibilité de se désister.
 
 **200** — `{ "commande": {...} }` · **409** si déjà prise · **404** si inexistante
 
