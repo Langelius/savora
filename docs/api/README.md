@@ -42,7 +42,7 @@ le taux de taxes dans le code du client.
 
 **200**
 ```json
-{ "version": "3.0.0", "tauxTaxes": 0.14975, "devise": "CAD", "modePaiement": "simulation" }
+{ "version": "3.1.0", "tauxTaxes": 0.14975, "devise": "CAD", "modePaiement": "simulation" }
 ```
 
 `modePaiement` vaut `stripe` si une clé de test est configurée, `simulation` sinon.

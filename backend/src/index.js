@@ -18,7 +18,7 @@ const routesMessages = require("./routes/messages");
 const routesMonRestaurant = require("./routes/monRestaurant");
 const routesNotifications = require("./routes/notifications");
 
-const VERSION_API = "3.0.0";
+const VERSION_API = "3.1.0";
 
 const application = express();
 

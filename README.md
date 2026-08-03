@@ -61,7 +61,7 @@ Procédure de test : [docs/exploitation/guide-de-test.md](./docs/exploitation/gu
 ## Vérifications
 
 ```bash
-cd backend && npm test                  # 30 tests unitaires (node:test)
+cd backend && npm test                  # 38 tests unitaires (node:test)
 cd mobile/App-Client && npm run typecheck
 ```
 

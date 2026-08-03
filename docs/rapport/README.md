@@ -20,7 +20,7 @@ historique Git lisible.
 
 ## 3. Analyse des besoins
 
-Voir le cahier des charges v3.0 dans `/livrables` et les user stories dans
+Voir le cahier des charges v3.1 dans `/livrables` et les user stories dans
 [`docs/user-stories/`](../user-stories/).
 
 ## 4. Méthodologie
@@ -81,7 +81,7 @@ que le code.
 - Les quatre fonctionnalités imposées sont opérationnelles.
 - Le parcours complet fonctionne de bout en bout sur téléphone, avec quatre
   rôles et mise à jour en temps réel.
-- 30 tests unitaires automatisés, vérification des types côté mobile,
+- 38 tests unitaires automatisés, vérification des types côté mobile,
   intégration continue sur chaque Pull Request.
 - Catalogue gérable depuis l'application : un administrateur crée un
   établissement et son gestionnaire, qui gère ensuite son propre menu.

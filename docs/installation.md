@@ -48,7 +48,7 @@ première requête.
 Au démarrage, la console affiche les adresses à utiliser :
 
 ```
-API Savora 3.0.0 et Socket.IO démarrés
+API Savora 3.1.0 et Socket.IO démarrés
   local     : http://localhost:3000/api/sante
   téléphone : http://192.168.2.15:3000/api/sante
   paiement  : mode simulation
