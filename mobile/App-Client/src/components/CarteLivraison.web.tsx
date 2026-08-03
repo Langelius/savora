@@ -5,14 +5,12 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 
 import { palette } from "../constants/design";
 
-// Version web de l'écran de carte.
+// Implémentation web de la carte de livraison.
 //
-// Metro résout les extensions de plateforme avant le fichier générique : sur
-// le web c'est ce fichier qui est retenu, et « carte-livraison.tsx » — qui
-// importe react-native-maps — n'entre jamais dans le paquet navigateur.
-// C'est indispensable : react-native-maps importe des modules internes de
-// React Native absents du web, et un import conditionnel ne suffirait pas
-// puisque Metro analyse les require() à la compilation.
+// Metro résout les extensions de plateforme sur les imports normaux : la
+// route importe « ../components/CarteLivraison », et c'est ce fichier-ci qui
+// est retenu sur le web. La version native, qui importe react-native-maps,
+// n'entre alors jamais dans le paquet navigateur.
 //
 // La carte est ici rendue par Leaflet, chargé depuis un CDN :
 //   - aucune clé d'API, contrairement à Google Maps ;
